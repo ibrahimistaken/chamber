@@ -3,3 +3,4 @@ node_modules/
 .wxt/
 coverage/
 
+web-ext.config.ts
