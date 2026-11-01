@@ -170,6 +170,20 @@
       "path": "lists/spoiler-diziler.json"
     },
     {
+      "id": "turk-influencer-fenomenler",
+      "name": "Türk Influencer ve Fenomen Filtresi",
+      "description": "Danla Bilic, Dilan Polat, Kerimcan Durmaz ve popüler Türk sosyal medya fenomenleri, magazin dramaları ve sponsorlu hikaye paylaşımlarını filtreler.",
+      "author": "chamber",
+      "version": 1,
+      "tags": {
+        "country": "TR",
+        "lang": "tr",
+        "category": "magazin"
+      },
+      "ruleCount": 65,
+      "path": "lists/turk-influencer-fenomenler.json"
+    },
+    {
       "id": "turkce-rap-sanatcilari",
       "name": "Türkçe Rap ve Müzik Gündemi",
       "description": "BLOK3, Ati242, Reynmen, Lvbel C5 ve diğer popüler Türkçe rap/drill sanatçıları, parçaları, dissleşmeleri ve magazin polemiklerini filtreler.",
