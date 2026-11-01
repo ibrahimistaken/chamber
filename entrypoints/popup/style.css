@@ -1163,21 +1163,17 @@ body {
   }
 }
 
-.chamber-card-top {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  min-width: 0;
-}
-
-/* Catalog card header: title + quiet inline submeta on the left, CTA button anchored top-right */
+/* Card header: title + quiet inline submeta on the left, actions on the right */
 .chamber-card-header {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
   gap: 12px;
   min-width: 0;
+}
+
+.chamber-card-header-centered {
+  align-items: center;
 }
 
 .chamber-card-heading {
@@ -1213,19 +1209,71 @@ body {
   font-weight: 500;
 }
 
-/* Accessible Switch on native checkbox — electric lime when active */
-.chamber-toggle-label {
+.chamber-card-actions {
+  flex-shrink: 0;
   display: inline-flex;
   align-items: center;
-  gap: 10px;
-  min-height: 26px;
-  min-width: 0;
+  gap: 6px;
+}
+
+/* Quiet backgroundless icon button inside a card (no nested box container) */
+.chamber-card-icon-btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-sm);
+  background-color: transparent;
+  color: var(--color-text-muted);
   cursor: pointer;
-  font-size: var(--text-card-title);
-  font-weight: 600;
-  line-height: 1.35;
-  letter-spacing: -0.01em;
-  color: var(--color-text-primary);
+  -webkit-tap-highlight-color: transparent;
+  transition-property: background-color, color, scale;
+  transition-duration: 150ms;
+  transition-timing-function: ease-out;
+}
+
+.chamber-card-icon-btn::after {
+  content: "";
+  position: absolute;
+  inset: -4px;
+}
+
+@media (hover: hover) {
+  .chamber-card-icon-btn-danger:hover {
+    background-color: var(--color-danger-subtle);
+    color: var(--color-danger-text);
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .chamber-card-icon-btn:active {
+    scale: 0.94;
+  }
+}
+
+.chamber-card-icon-btn:focus-visible {
+  outline: 2px solid var(--color-focus-ring);
+  outline-offset: 2px;
+}
+
+/* Accessible Switch on native checkbox — 36x20 capsule with concentric 16x16 thumb at 2px inset */
+.chamber-switch {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.chamber-switch::after {
+  content: "";
+  position: absolute;
+  inset-block: -6px;
+  inset-inline: -2px;
 }
 
 .chamber-switch-input {
@@ -1242,12 +1290,12 @@ body {
 .chamber-switch-track {
   position: relative;
   flex-shrink: 0;
-  width: 34px;
+  width: 36px;
   height: 20px;
   border-radius: var(--radius-pill);
-  background-color: var(--color-bg-subtle);
-  border: 1px solid var(--color-border-default);
-  transition-property: background-color, border-color;
+  background-color: var(--obsidian-700);
+  box-shadow: inset 0 0 0 1px oklch(1 0 0 / 0.1);
+  transition-property: background-color, box-shadow;
   transition-duration: 150ms;
   transition-timing-function: ease-out;
 }
@@ -1256,23 +1304,28 @@ body {
   position: absolute;
   inset-block-start: 2px;
   inset-inline-start: 2px;
-  width: 14px;
-  height: 14px;
+  width: 16px;
+  height: 16px;
   border-radius: var(--radius-pill);
   background-color: var(--color-text-secondary);
   transition-property: transform, background-color;
   transition-duration: 150ms;
-  transition-timing-function: ease-out;
+  transition-timing-function: cubic-bezier(0.2, 0, 0, 1);
 }
 
 .chamber-switch-input:checked + .chamber-switch-track {
   background-color: var(--color-switch-active);
-  border-color: transparent;
+  box-shadow: none;
 }
 
 .chamber-switch-input:checked + .chamber-switch-track .chamber-switch-thumb {
-  transform: translateX(14px);
+  transform: translateX(16px);
   background-color: var(--black-pure);
+}
+
+.chamber-switch-input:focus-visible + .chamber-switch-track {
+  outline: 2px solid var(--color-focus-ring);
+  outline-offset: 2px;
 }
 
 .chamber-list-name {
@@ -1283,19 +1336,15 @@ body {
   letter-spacing: -0.01em;
   color: var(--color-text-primary);
   overflow-wrap: break-word;
+  transition: color 150ms ease-out;
 }
 
-.chamber-card-meta {
-  font-size: var(--text-caption);
-  line-height: 1.4;
+.chamber-card-disabled .chamber-list-name {
   color: var(--color-text-secondary);
-  font-variant-numeric: tabular-nums;
 }
 
-/* Align installed-list metadata with the list title edge (34px switch + 10px gap = 44px) */
-.chamber-card-meta-indented {
-  margin-block-start: -4px;
-  padding-inline-start: 44px;
+.chamber-card-disabled .chamber-card-rules-text {
+  color: var(--color-text-muted);
 }
 
 .chamber-card-desc {
@@ -1494,6 +1543,54 @@ body {
   .chamber-disclosure[open] .chamber-disclosure-body {
     animation-name: chamber-enter-up;
   }
+}
+
+/* Footer — quiet open-source note + GitHub link anchored at the bottom */
+.chamber-footer {
+  margin-block-start: auto;
+  padding-block-start: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  font-size: var(--text-caption);
+  line-height: 1.35;
+  color: var(--color-text-muted);
+}
+
+.chamber-footer-text {
+  user-select: none;
+}
+
+.chamber-footer-link {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  border-radius: var(--radius-sm);
+  color: var(--color-text-secondary);
+  font-weight: 500;
+  text-decoration: none;
+  -webkit-tap-highlight-color: transparent;
+  transition: color 150ms ease-out;
+}
+
+.chamber-footer-link::after {
+  content: "";
+  position: absolute;
+  inset-block: -6px;
+  inset-inline: -4px;
+}
+
+@media (hover: hover) {
+  .chamber-footer-link:hover {
+    color: var(--color-text-primary);
+  }
+}
+
+.chamber-footer-link:focus-visible {
+  outline: 2px solid var(--color-focus-ring);
+  outline-offset: 3px;
 }
 
 @keyframes chamber-fade-in {

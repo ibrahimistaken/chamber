@@ -75,6 +75,9 @@ export interface Messages {
   readonly settingsGeneralHeading: string;
   readonly settingsPreferencesRow: string;
   readonly settingsLanguageHeading: string;
+  readonly openSourceFooterText: string;
+  readonly githubLinkLabel: string;
+  readonly githubLinkAriaLabel: string;
   readonly statsCardTitle: string;
   readonly statsAccountsLabel: string;
   readonly statsKeywordsLabel: string;
@@ -112,7 +115,7 @@ const MESSAGES: Readonly<Record<Locale, Messages>> = {
     noInstalledListsHint: 'Kurduğun listeler burada görünür ve tek dokunuşla açılıp kapatılır.',
     browseCatalogButton: 'Kataloğa göz at',
     listMetaSummary: ({ ruleCount, version, updatedAtText }) =>
-      `${ruleCount} kural · v${version} · Son güncelleme: ${updatedAtText}`,
+      `${ruleCount} kural · v${version} · ${updatedAtText}`,
     toggleListAriaLabel: (name) => `${name} listesini aç/kapat`,
     deleteListButton: 'Sil',
     deleteListAriaLabel: (name) => `${name} listesini sil`,
@@ -132,6 +135,9 @@ const MESSAGES: Readonly<Record<Locale, Messages>> = {
     settingsGeneralHeading: 'Genel',
     settingsPreferencesRow: 'Tercihler ve görüntüleme',
     settingsLanguageHeading: 'Dil',
+    openSourceFooterText: 'Açık kaynak',
+    githubLinkLabel: 'GitHub',
+    githubLinkAriaLabel: 'Chamber GitHub deposunu yeni sekmede aç',
     statsCardTitle: 'Aktif Kural',
     statsAccountsLabel: 'Hesap',
     statsKeywordsLabel: 'Kelime',
@@ -168,7 +174,7 @@ const MESSAGES: Readonly<Record<Locale, Messages>> = {
     noInstalledListsHint: 'Lists you install appear here and can be turned on or off in one tap.',
     browseCatalogButton: 'Browse catalog',
     listMetaSummary: ({ ruleCount, version, updatedAtText }) =>
-      `${ruleCount} rules · v${version} · Last updated: ${updatedAtText}`,
+      `${ruleCount} rules · v${version} · ${updatedAtText}`,
     toggleListAriaLabel: (name) => `Toggle list ${name}`,
     deleteListButton: 'Delete',
     deleteListAriaLabel: (name) => `Delete list ${name}`,
@@ -188,6 +194,9 @@ const MESSAGES: Readonly<Record<Locale, Messages>> = {
     settingsGeneralHeading: 'General',
     settingsPreferencesRow: 'Preferences & display',
     settingsLanguageHeading: 'Language',
+    openSourceFooterText: 'Open source',
+    githubLinkLabel: 'GitHub',
+    githubLinkAriaLabel: 'Open Chamber GitHub repository in a new tab',
     statsCardTitle: 'Active Rules',
     statsAccountsLabel: 'Accounts',
     statsKeywordsLabel: 'Keywords',

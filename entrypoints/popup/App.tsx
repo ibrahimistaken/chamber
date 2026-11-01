@@ -36,6 +36,7 @@ import {
   IconChevronRight,
   IconClose,
   IconDownload,
+  IconGitHub,
   IconHamburgerMenu,
   IconLink,
   IconListTab,
@@ -681,49 +682,61 @@ export default function App({ locale = 'tr', storage, fetchFn, permissions }: Ap
                     <li
                       key={record.id}
                       data-testid={`installed-list-${record.id}`}
-                      className="chamber-card"
+                      className={`chamber-card${record.enabled ? '' : ' chamber-card-disabled'}`}
                     >
-                      <div className="chamber-card-top">
-                        <label className="chamber-toggle-label">
-                          <input
-                            type="checkbox"
-                            data-testid={`toggle-list-${record.id}`}
-                            aria-label={messages.toggleListAriaLabel(name)}
-                            checked={record.enabled}
-                            onChange={(e) => void handleToggleList(record.id, e.target.checked)}
-                            className="chamber-switch-input"
-                          />
-                          <span className="chamber-switch-track" aria-hidden="true">
-                            <span className="chamber-switch-thumb" />
-                          </span>
-                          <span
+                      <div className="chamber-card-header chamber-card-header-centered">
+                        <div className="chamber-card-heading">
+                          <strong
                             data-testid={`list-name-${record.id}`}
                             className="chamber-list-name"
                           >
                             <bdi>{name}</bdi>
-                          </span>
-                        </label>
-                        <button
-                          type="button"
-                          data-testid={`delete-list-${record.id}`}
-                          aria-label={messages.deleteListAriaLabel(name)}
-                          onClick={() => void handleDeleteList(record.id)}
-                          className="chamber-btn chamber-btn-danger-ghost"
-                        >
-                          <IconTrash size={13} strokeWidth={2} />
-                          <span>{messages.deleteListButton}</span>
-                        </button>
-                      </div>
+                          </strong>
+                          <div
+                            data-testid={`list-meta-${record.id}`}
+                            className="chamber-card-submeta chamber-tabular"
+                          >
+                            <span className="chamber-card-rules-text">
+                              {messages.catalogRuleCount(ruleCount)}
+                            </span>
+                            <span className="chamber-card-dot" aria-hidden="true">
+                              {' · '}
+                            </span>
+                            <span className="chamber-card-tag-text">{`v${record.version}`}</span>
+                            <span className="chamber-card-dot" aria-hidden="true">
+                              {' · '}
+                            </span>
+                            <span className="chamber-card-tag-text">{updatedAtText}</span>
+                          </div>
+                        </div>
 
-                      <div
-                        data-testid={`list-meta-${record.id}`}
-                        className="chamber-card-meta chamber-card-meta-indented"
-                      >
-                        {messages.listMetaSummary({
-                          ruleCount,
-                          version: record.version,
-                          updatedAtText,
-                        })}
+                        <div className="chamber-card-actions">
+                          <button
+                            type="button"
+                            data-testid={`delete-list-${record.id}`}
+                            aria-label={messages.deleteListAriaLabel(name)}
+                            title={messages.deleteListButton}
+                            onClick={() => void handleDeleteList(record.id)}
+                            className="chamber-card-icon-btn chamber-card-icon-btn-danger"
+                          >
+                            <IconTrash size={15} strokeWidth={1.75} />
+                          </button>
+
+                          <label className="chamber-switch">
+                            <input
+                              type="checkbox"
+                              role="switch"
+                              data-testid={`toggle-list-${record.id}`}
+                              aria-label={messages.toggleListAriaLabel(name)}
+                              checked={record.enabled}
+                              onChange={(e) => void handleToggleList(record.id, e.target.checked)}
+                              className="chamber-switch-input"
+                            />
+                            <span className="chamber-switch-track" aria-hidden="true">
+                              <span className="chamber-switch-thumb" />
+                            </span>
+                          </label>
+                        </div>
                       </div>
 
                       {record.error !== undefined && (
@@ -988,6 +1001,24 @@ export default function App({ locale = 'tr', storage, fetchFn, permissions }: Ap
           )}
         </section>
       )}
+
+      <footer data-testid="popup-footer" className="chamber-footer">
+        <span className="chamber-footer-text">{messages.openSourceFooterText}</span>
+        <span className="chamber-card-dot" aria-hidden="true">
+          ·
+        </span>
+        <a
+          href="https://github.com/ibrahimistaken/chamber"
+          target="_blank"
+          rel="noopener noreferrer"
+          data-testid="footer-github-link"
+          aria-label={messages.githubLinkAriaLabel}
+          className="chamber-footer-link"
+        >
+          <IconGitHub size={13} />
+          <span>{messages.githubLinkLabel}</span>
+        </a>
+      </footer>
     </main>
   );
 }

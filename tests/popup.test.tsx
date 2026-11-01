@@ -115,6 +115,14 @@ describe('Popup App (List Manager)', () => {
     expect(advancedDetails?.querySelector('[data-testid="add-url-form"]')).not.toBeNull();
     expect(advancedDetails?.querySelector('[data-testid="list-url-input"]')).not.toBeNull();
     expect(advancedDetails?.querySelector('[data-testid="list-json-input"]')).not.toBeNull();
+
+    const footer = container.querySelector('[data-testid="popup-footer"]');
+    expect(footer?.textContent).toContain('Açık kaynak');
+    const githubLink = container.querySelector(
+      '[data-testid="footer-github-link"]',
+    ) as HTMLAnchorElement | null;
+    expect(githubLink?.getAttribute('href')).toBe('https://github.com/ibrahimistaken/chamber');
+    expect(githubLink?.getAttribute('target')).toBe('_blank');
   });
 
   it('renders installed lists with name, rule count, version, last updated, and error state', async () => {
