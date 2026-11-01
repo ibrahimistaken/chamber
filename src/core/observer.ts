@@ -6,9 +6,16 @@ import {
   markProcessed,
   PLACEHOLDER_ATTR,
   PROCESSED_ATTR,
+  resetAllItems,
   resetItem,
 } from './hider';
 import { matchAuthor, matchScoped, matchText, type CompiledRules } from './matcher';
+import {
+  getActiveRules,
+  onActiveRulesChanged,
+  type StorageAreaLike,
+  type StorageEventsLike,
+} from '../storage/rules';
 
 export interface ObserverOptions {
   readonly adapter: Adapter;
@@ -211,5 +218,59 @@ export function startObserver(options: ObserverOptions): ObserverHandle {
       observer.disconnect();
     },
     flush,
+  };
+}
+
+export interface LiveObserverOptions {
+  readonly adapter: Adapter;
+  readonly root?: ParentNode & Node;
+  readonly debounceMs?: number;
+  readonly storage?: StorageAreaLike;
+  readonly events?: StorageEventsLike;
+}
+
+/**
+ * Starts the page observer with the current active rules and restarts it
+ * whenever `chamber:activeRules` changes in storage:
+ * 1. Stops the previous observer (disconnects MutationObserver and cancels any
+ *    pending debounce timer).
+ * 2. Resets all `data-chamber-processed` attributes, removes placeholder boxes,
+ *    and restores hidden/blurred items.
+ * 3. Re-scans the page from scratch with the new rules and starts a fresh observer.
+ */
+export async function startLiveObserver(
+  options: LiveObserverOptions,
+): Promise<ObserverHandle> {
+  const { adapter, root = document.body, debounceMs, storage, events } = options;
+
+  const initial = await getActiveRules(storage);
+  let currentHandle = startObserver({
+    adapter,
+    rules: initial.rules,
+    mode: initial.mode,
+    root,
+    debounceMs,
+  });
+
+  const unsubscribe = onActiveRulesChanged(({ rules, mode }) => {
+    currentHandle.stop();
+    resetAllItems(root);
+    currentHandle = startObserver({
+      adapter,
+      rules,
+      mode,
+      root,
+      debounceMs,
+    });
+  }, events);
+
+  return {
+    stop() {
+      unsubscribe();
+      currentHandle.stop();
+    },
+    flush() {
+      currentHandle.flush();
+    },
   };
 }

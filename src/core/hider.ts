@@ -80,6 +80,19 @@ export function resetItem(item: HTMLElement): void {
 }
 
 /**
+ * Resets every processed item and removes any leftover placeholder boxes under
+ * `root` so the page can be freshly re-evaluated when active rules change.
+ */
+export function resetAllItems(root: ParentNode = document.body): void {
+  for (const item of root.querySelectorAll<HTMLElement>(`[${PROCESSED_ATTR}]`)) {
+    resetItem(item);
+  }
+  for (const placeholder of root.querySelectorAll(`[${PLACEHOLDER_ATTR}]`)) {
+    placeholder.remove();
+  }
+}
+
+/**
  * Applies the requested hide mode to a matched DOM item.
  * Never uses innerHTML (CLAUDE.md invariant #3); all labels go through textContent.
  * If an item has already been revealed by the user for the same content

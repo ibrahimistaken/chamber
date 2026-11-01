@@ -22,6 +22,19 @@ export interface ActiveRulesConfig {
   readonly mode: HideMode;
 }
 
+export interface StorageChange {
+  readonly oldValue?: unknown;
+  readonly newValue?: unknown;
+}
+
+export type StorageChanges = Record<string, StorageChange>;
+export type StorageChangeListener = (changes: StorageChanges, areaName: string) => void;
+
+export interface StorageEventsLike {
+  addListener(callback: StorageChangeListener): void;
+  removeListener(callback: StorageChangeListener): void;
+}
+
 export interface StorageAreaLike {
   get(keys: string): Promise<Record<string, unknown>>;
   set(items: Record<string, unknown>): Promise<void>;
@@ -33,6 +46,14 @@ function getStorageArea(custom?: StorageAreaLike): StorageAreaLike {
     return browser.storage.local;
   }
   throw new Error('browser.storage.local is not available in this environment');
+}
+
+function getStorageEvents(custom?: StorageEventsLike): StorageEventsLike {
+  if (custom) return custom;
+  if (typeof browser !== 'undefined' && browser.storage?.onChanged) {
+    return browser.storage.onChanged;
+  }
+  throw new Error('browser.storage.onChanged is not available in this environment');
 }
 
 function isStoredActiveRules(value: unknown): value is StoredActiveRules {
@@ -48,14 +69,10 @@ function isStoredActiveRules(value: unknown): value is StoredActiveRules {
 }
 
 /**
- * Reads the compiled active rules from chrome.storage.local.
- * Returns an empty rule set with default "collapse" mode when nothing is stored.
+ * Converts a raw stored value into an `ActiveRulesConfig`, falling back to an
+ * empty rule set with "collapse" mode when the value is absent or cleared.
  */
-export async function getActiveRules(storage?: StorageAreaLike): Promise<ActiveRulesConfig> {
-  const area = getStorageArea(storage);
-  const raw = await area.get(ACTIVE_RULES_KEY);
-  const stored = raw[ACTIVE_RULES_KEY];
-
+export function parseStoredActiveRules(stored: unknown): ActiveRulesConfig {
   if (!isStoredActiveRules(stored)) {
     return {
       rules: compileRules([]),
@@ -72,6 +89,16 @@ export async function getActiveRules(storage?: StorageAreaLike): Promise<ActiveR
     },
     mode: stored.mode,
   };
+}
+
+/**
+ * Reads the compiled active rules from chrome.storage.local.
+ * Returns an empty rule set with default "collapse" mode when nothing is stored.
+ */
+export async function getActiveRules(storage?: StorageAreaLike): Promise<ActiveRulesConfig> {
+  const area = getStorageArea(storage);
+  const raw = await area.get(ACTIVE_RULES_KEY);
+  return parseStoredActiveRules(raw[ACTIVE_RULES_KEY]);
 }
 
 /**
@@ -95,4 +122,27 @@ export async function setActiveRules(
 
   await area.set({ [ACTIVE_RULES_KEY]: payload });
   return { rules: compiled, mode };
+}
+
+/**
+ * Subscribes to changes on `ACTIVE_RULES_KEY` in `local` storage only.
+ * Ignores changes to any other key or storage area. Returns an unsubscribe function.
+ */
+export function onActiveRulesChanged(
+  callback: (config: ActiveRulesConfig) => void,
+  events?: StorageEventsLike,
+): () => void {
+  const target = getStorageEvents(events);
+
+  const listener: StorageChangeListener = (changes, areaName) => {
+    if (areaName !== 'local') return;
+    if (!Object.prototype.hasOwnProperty.call(changes, ACTIVE_RULES_KEY)) return;
+    const change = changes[ACTIVE_RULES_KEY];
+    callback(parseStoredActiveRules(change?.newValue));
+  };
+
+  target.addListener(listener);
+  return () => {
+    target.removeListener(listener);
+  };
 }

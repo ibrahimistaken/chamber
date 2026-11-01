@@ -9,8 +9,19 @@ import {
   PROCESSED_ATTR,
 } from '../src/core/hider';
 import { compileRules, type ListRules } from '../src/core/matcher';
-import { processItem, startObserver, type ObserverHandle } from '../src/core/observer';
-import { getActiveRules, setActiveRules } from '../src/storage/rules';
+import {
+  processItem,
+  startLiveObserver,
+  startObserver,
+  type ObserverHandle,
+} from '../src/core/observer';
+import {
+  ACTIVE_RULES_KEY,
+  getActiveRules,
+  setActiveRules,
+  type StorageChangeListener,
+  type StorageChanges,
+} from '../src/storage/rules';
 
 const SELECTORS = {
   item: 'article.post',
@@ -296,19 +307,45 @@ describe('observer', () => {
 describe('storage/rules', () => {
   function createMemoryStorage() {
     const store: Record<string, unknown> = {};
+    const listeners = new Set<StorageChangeListener>();
+
     return {
-      async get(key: string) {
-        return { [key]: store[key] };
+      store,
+      listeners,
+      area: {
+        async get(key: string) {
+          return { [key]: store[key] };
+        },
+        async set(items: Record<string, unknown>) {
+          const changes: StorageChanges = {};
+          for (const [k, newValue] of Object.entries(items)) {
+            changes[k] = { oldValue: store[k], newValue };
+            store[k] = newValue;
+          }
+          for (const listener of listeners) {
+            listener(changes, 'local');
+          }
+        },
       },
-      async set(items: Record<string, unknown>) {
-        Object.assign(store, items);
+      events: {
+        addListener(cb: StorageChangeListener) {
+          listeners.add(cb);
+        },
+        removeListener(cb: StorageChangeListener) {
+          listeners.delete(cb);
+        },
+      },
+      emitRaw(changes: StorageChanges, areaName = 'local') {
+        for (const listener of listeners) {
+          listener(changes, areaName);
+        }
       },
     };
   }
 
   it('returns empty rules and collapse mode when storage is empty', async () => {
-    const storage = createMemoryStorage();
-    const result = await getActiveRules(storage);
+    const { area } = createMemoryStorage();
+    const result = await getActiveRules(area);
 
     expect(result.mode).toBe('collapse');
     expect(result.rules.keywords).toEqual([]);
@@ -317,7 +354,7 @@ describe('storage/rules', () => {
   });
 
   it('persists and restores compiled rules and mode via setActiveRules / getActiveRules', async () => {
-    const storage = createMemoryStorage();
+    const { area } = createMemoryStorage();
     await setActiveRules(
       [
         {
@@ -327,10 +364,10 @@ describe('storage/rules', () => {
         },
       ],
       'blur',
-      storage,
+      area,
     );
 
-    const loaded = await getActiveRules(storage);
+    const loaded = await getActiveRules(area);
     expect(loaded.mode).toBe('blur');
     expect(loaded.rules.accounts.has('x:ornek')).toBe(true);
     expect(loaded.rules.keywords).toEqual([
@@ -338,5 +375,177 @@ describe('storage/rules', () => {
       { text: 'spoiler', match: 'word' },
     ]);
     expect(loaded.rules.exclude).toEqual(['spoiler yok']);
+  });
+
+  describe('startLiveObserver (storage.onChanged integration)', () => {
+    let feed: HTMLElement;
+    let liveHandle: ObserverHandle | null = null;
+
+    beforeEach(() => {
+      vi.useFakeTimers();
+      document.body.textContent = '';
+      feed = document.createElement('main');
+      document.body.appendChild(feed);
+    });
+
+    afterEach(() => {
+      liveHandle?.stop();
+      liveHandle = null;
+      vi.useRealTimers();
+    });
+
+    it('unhides previously hidden items that no longer match and hides newly matching items on rule change', async () => {
+      const { area, events } = createMemoryStorage();
+      await setActiveRules([{ keywords: ['spoiler'] }], 'collapse', area);
+
+      const postA = createPostElement('@user1', 'Büyük spoiler var');
+      const postB = createPostElement('@user2', 'Harika futbol maçı');
+      feed.append(postA, postB);
+
+      const adapter = createFakeAdapter();
+      liveHandle = await startLiveObserver({
+        adapter,
+        root: feed,
+        storage: area,
+        events,
+      });
+
+      expect(postA.style.display).toBe('none');
+      expect(postB.style.display).toBe('');
+      expect(feed.querySelectorAll(`[${PLACEHOLDER_ATTR}]`)).toHaveLength(1);
+
+      // Update rules: 'spoiler' is removed, 'futbol' is added.
+      await setActiveRules([{ keywords: ['futbol'] }], 'collapse', area);
+
+      expect(postA.style.display).toBe('');
+      expect(getProcessedState(postA)).toBe('checked');
+      expect(postB.style.display).toBe('none');
+      expect(getProcessedState(postB)).toBe('hidden');
+      expect(feed.querySelectorAll(`[${PLACEHOLDER_ATTR}]`)).toHaveLength(1);
+    });
+
+    it('re-evaluates a user-revealed ("Göster") item when active rules change', async () => {
+      const { area, events } = createMemoryStorage();
+      await setActiveRules([{ keywords: ['spoiler'] }], 'collapse', area);
+
+      const post = createPostElement('@user1', 'Spoiler ve futbol aynı gönderide');
+      feed.appendChild(post);
+
+      const adapter = createFakeAdapter();
+      liveHandle = await startLiveObserver({
+        adapter,
+        root: feed,
+        storage: area,
+        events,
+      });
+      expect(post.style.display).toBe('none');
+
+      // User clicks "Göster" to reveal the post.
+      const showBtn = feed.querySelector(`[${PLACEHOLDER_ATTR}] button`) as HTMLButtonElement;
+      showBtn.click();
+      expect(post.style.display).toBe('');
+      expect(getProcessedState(post)).toBe('revealed');
+
+      // Rules change (still matches via 'futbol'); revealed state is reset and re-evaluated.
+      await setActiveRules([{ keywords: ['futbol'] }], 'collapse', area);
+
+      expect(post.style.display).toBe('none');
+      expect(getProcessedState(post)).toBe('hidden');
+      expect(feed.querySelectorAll(`[${PLACEHOLDER_ATTR}]`)).toHaveLength(1);
+    });
+
+    it('restores all hidden items and removes placeholders when rules are cleared', async () => {
+      const { area, events, emitRaw } = createMemoryStorage();
+      await setActiveRules([{ keywords: ['spoiler'] }], 'collapse', area);
+
+      const post = createPostElement('@user1', 'Spoiler içerik');
+      feed.appendChild(post);
+
+      const adapter = createFakeAdapter();
+      liveHandle = await startLiveObserver({
+        adapter,
+        root: feed,
+        storage: area,
+        events,
+      });
+      expect(post.style.display).toBe('none');
+      expect(feed.querySelectorAll(`[${PLACEHOLDER_ATTR}]`)).toHaveLength(1);
+
+      // Clear rules to empty list.
+      await setActiveRules([], 'collapse', area);
+
+      expect(post.style.display).toBe('');
+      expect(getProcessedState(post)).toBe('checked');
+      expect(feed.querySelector(`[${PLACEHOLDER_ATTR}]`)).toBeNull();
+
+      // Also verify key removal (newValue: undefined).
+      await setActiveRules([{ keywords: ['spoiler'] }], 'collapse', area);
+      expect(post.style.display).toBe('none');
+      emitRaw({ [ACTIVE_RULES_KEY]: { oldValue: {}, newValue: undefined } }, 'local');
+      expect(post.style.display).toBe('');
+      expect(feed.querySelector(`[${PLACEHOLDER_ATTR}]`)).toBeNull();
+    });
+
+    it('cancels the previous observer debounce timer and stops old rules from firing', async () => {
+      const { area, events } = createMemoryStorage();
+      await setActiveRules([{ keywords: ['eski'] }], 'collapse', area);
+
+      const adapter = createFakeAdapter();
+      liveHandle = await startLiveObserver({
+        adapter,
+        root: feed,
+        debounceMs: 50,
+        storage: area,
+        events,
+      });
+
+      // Add a dynamic node matching the OLD rule, let MutationObserver queue it,
+      // then switch rules BEFORE the 50ms debounce timer fires.
+      const post = createPostElement('@user1', 'Bu eski kuralı içerir');
+      feed.appendChild(post);
+      await Promise.resolve();
+
+      await setActiveRules([{ keywords: ['yeni'] }], 'collapse', area);
+
+      // Advance past the old debounce window; the old observer must not hide `post`.
+      vi.advanceTimersByTime(100);
+      expect(post.style.display).toBe('');
+      expect(getProcessedState(post)).toBe('checked');
+
+      // Dynamic node matching the NEW rule is hidden by the new observer.
+      const newPost = createPostElement('@user2', 'Bu yeni kuralı içerir');
+      feed.appendChild(newPost);
+      await Promise.resolve();
+      vi.advanceTimersByTime(60);
+      expect(newPost.style.display).toBe('none');
+    });
+
+    it('ignores storage changes for unrelated keys or non-local storage areas', async () => {
+      const counters = {
+        getTextCalls: new Map<HTMLElement, number>(),
+        hideCalls: new Map<HTMLElement, number>(),
+      };
+      const { area, events, emitRaw } = createMemoryStorage();
+      await setActiveRules([{ keywords: ['spoiler'] }], 'collapse', area);
+
+      const post = createPostElement('@user1', 'Temiz metin');
+      feed.appendChild(post);
+
+      const adapter = createFakeAdapter(counters);
+      liveHandle = await startLiveObserver({
+        adapter,
+        root: feed,
+        storage: area,
+        events,
+      });
+      expect(counters.getTextCalls.get(post)).toBe(1);
+
+      // Unrelated key in local storage.
+      emitRaw({ 'other:key': { newValue: 123 } }, 'local');
+      // Same key but in sync storage area.
+      emitRaw({ [ACTIVE_RULES_KEY]: { newValue: undefined } }, 'sync');
+
+      expect(counters.getTextCalls.get(post)).toBe(1);
+    });
   });
 });
