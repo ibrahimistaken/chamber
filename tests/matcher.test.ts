@@ -5,6 +5,8 @@ import {
   containsWord,
   matchAuthor,
   matchText,
+  MIN_PREFIX_LENGTH,
+  RuleValidationError,
   type ListRules,
 } from '../src/core/matcher';
 import exampleList from '../lists/ornek-liste.json';
@@ -128,6 +130,49 @@ describe('compileRules', () => {
     expect(compile({ keywords: [{ text: '\u200B', match: 'prefix' }] }).keywords).toEqual([]);
   });
 
+  describe('prefix minimum length', () => {
+    const prefix = (text: string) => compile({ keywords: [{ text, match: 'prefix' }] });
+
+    it(`exposes the limit as ${MIN_PREFIX_LENGTH}`, () => {
+      expect(MIN_PREFIX_LENGTH).toBe(4);
+    });
+
+    it('rejects "ali" in prefix mode with a clear error', () => {
+      expect(() => prefix('ali')).toThrow(RuleValidationError);
+      expect(() => prefix('ali')).toThrow(
+        'Prefix keyword "ali" is too short: it must be at least 4 characters ' +
+          'after normalization ("ali" has 3). Use match "word" instead.',
+      );
+    });
+
+    it('accepts "siyas" and exactly 4 characters', () => {
+      expect(prefix('siyas').keywords).toEqual([{ text: 'siyas', match: 'prefix' }]);
+      expect(prefix('siya').keywords).toEqual([{ text: 'siya', match: 'prefix' }]);
+    });
+
+    it('checks length after normalization, not raw length', () => {
+      // Raw lengths are >= 4, so these pass the JSON Schema check.
+      expect(() => prefix(' ali ')).toThrow(RuleValidationError);
+      expect(() => prefix('ali\u200B')).toThrow(RuleValidationError);
+      expect(() => prefix('a\u0301li')).toThrow(RuleValidationError);
+    });
+
+    it('counts Turkish letters as single characters', () => {
+      expect(prefix('İŞÇİ').keywords).toEqual([{ text: 'isci', match: 'prefix' }]);
+      expect(() => prefix('İŞÇ')).toThrow(RuleValidationError);
+    });
+
+    it('does not limit word mode', () => {
+      expect(compile({ keywords: ['ali', { text: 'ab', match: 'word' }] }).keywords).toHaveLength(2);
+    });
+
+    it('rejects even if the same text also exists as a word rule', () => {
+      expect(() =>
+        compileRules([{ keywords: ['ali'] }, { keywords: [{ text: 'ali', match: 'prefix' }] }]),
+      ).toThrow(RuleValidationError);
+    });
+  });
+
   it('deduplicates exclude phrases and accounts', () => {
     const compiled = compileRules([
       { exclude: ['Spoiler yok'], accounts: [{ platform: 'x', handle: 'Ornek' }] },
@@ -187,10 +232,10 @@ describe('matchText', () => {
       expect(matchText('alinin', word).matched).toBe(false);
     });
 
-    it('"ali" in prefix mode matches "alinin" but still not "kalite"', () => {
-      const prefix = compile({ keywords: [{ text: 'ali', match: 'prefix' }] });
-      expect(matchText('alinin', prefix).matched).toBe(true);
-      expect(matchText('kalite', prefix).matched).toBe(false);
+    it('prefix mode matches suffixes but never mid-word', () => {
+      const prefix = compile({ keywords: [{ text: 'alış', match: 'prefix' }] });
+      expect(matchText('alışveriş', prefix).matched).toBe(true);
+      expect(matchText('kalış', prefix).matched).toBe(false);
     });
   });
 

@@ -93,5 +93,24 @@ describe('list.schema.json', () => {
     it('rejects unknown fields in keyword object', () => {
       expect(validate(withKeywords([{ text: 'a', flags: 'i' }]))).toBe(false);
     });
+
+    it('rejects prefix keywords shorter than 4 characters', () => {
+      expect(validate(withKeywords([{ text: 'ali', match: 'prefix' }]))).toBe(false);
+    });
+
+    it('accepts prefix keywords with 4 or more characters', () => {
+      expect(validate(withKeywords([{ text: 'siya', match: 'prefix' }]))).toBe(true);
+      expect(validate(withKeywords([{ text: 'siyas', match: 'prefix' }]))).toBe(true);
+    });
+
+    it('counts Turkish letters as single characters', () => {
+      expect(validate(withKeywords([{ text: 'İŞÇİ', match: 'prefix' }]))).toBe(true);
+    });
+
+    it('does not limit word-mode keywords', () => {
+      expect(validate(withKeywords(['ali', { text: 'ali' }, { text: 'ab', match: 'word' }]))).toBe(
+        true,
+      );
+    });
   });
 });

@@ -83,6 +83,14 @@
                     "enum": ["word", "prefix"],
                     "default": "word"
                   }
+                },
+                "$comment": "Short prefixes match far too much. Schema can only check raw length; compileRules re-checks after normalization.",
+                "if": {
+                  "required": ["match"],
+                  "properties": { "match": { "const": "prefix" } }
+                },
+                "then": {
+                  "properties": { "text": { "minLength": 4 } }
                 }
               }
             ]
