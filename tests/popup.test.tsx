@@ -103,9 +103,17 @@ describe('Popup App (List Manager)', () => {
     expect(summary?.textContent).toBe(
       'Aktif kural: 4 (1 hesap, 2 kelime, 0 istisna, 1 hesaba bağlı kural)',
     );
+    expect(container.querySelector('[data-testid="stats-total-value"]')?.textContent).toBe('4');
+    expect(container.querySelector('[data-testid="stats-keywords-value"]')?.textContent).toBe('2');
+    expect(container.querySelector('[data-testid="stats-accounts-value"]')?.textContent).toBe('1');
+    expect(container.querySelector('[data-testid="stats-exclude-value"]')?.textContent).toBe('0');
+    expect(container.querySelector('[data-testid="stats-scoped-value"]')?.textContent).toBe('1');
+    expect(container.querySelector('.chamber-brand-icon')).toBeNull();
 
     const advancedDetails = container.querySelector('[data-testid="advanced-section"]');
     expect(advancedDetails?.tagName).toBe('DETAILS');
+    expect(advancedDetails?.querySelector('[data-testid="add-url-form"]')).not.toBeNull();
+    expect(advancedDetails?.querySelector('[data-testid="list-url-input"]')).not.toBeNull();
     expect(advancedDetails?.querySelector('[data-testid="list-json-input"]')).not.toBeNull();
   });
 
@@ -211,7 +219,10 @@ describe('Popup App (List Manager)', () => {
 
     expect(container.querySelector('[data-testid="installed-list-ornek-liste"]')).toBeNull();
     expect(container.querySelector('[data-testid="no-installed-lists"]')?.textContent).toBe(
-      'Henüz yüklü liste yok.',
+      'Henüz liste yok',
+    );
+    expect(container.querySelector('[data-testid="empty-browse-catalog"]')?.textContent).toBe(
+      'Kataloğa göz at',
     );
     expect(container.querySelector('[data-testid="active-rules-count"]')?.textContent).toBe(
       'Aktif kural: 0 (0 hesap, 0 kelime, 0 istisna, 0 hesaba bağlı kural)',
@@ -327,6 +338,34 @@ describe('Popup App (List Manager)', () => {
 
     const error = container.querySelector('[data-testid="list-error"]');
     expect(error?.textContent).toBe('Geçersiz JSON biçimi.');
+    expect(container.querySelector('[data-testid="list-status"]')).toBeNull();
+
+    const dismissError = container.querySelector(
+      '[data-testid="list-error-dismiss"]',
+    ) as HTMLButtonElement;
+    expect(dismissError.getAttribute('aria-label')).toBe('Bildirimi kapat');
+    await act(async () => {
+      dismissError.click();
+    });
+    expect(container.querySelector('[data-testid="list-error"]')).toBeNull();
+  });
+
+  it('lets the user dismiss a success notice', async () => {
+    const storage = createMemoryStorage();
+
+    await act(async () => {
+      root.render(<App storage={storage} />);
+    });
+
+    await setTextareaAndSubmit(JSON.stringify(exampleList));
+    expect(container.querySelector('[data-testid="list-status"]')).not.toBeNull();
+
+    const dismissStatus = container.querySelector(
+      '[data-testid="list-status-dismiss"]',
+    ) as HTMLButtonElement;
+    await act(async () => {
+      dismissStatus.click();
+    });
     expect(container.querySelector('[data-testid="list-status"]')).toBeNull();
   });
 
@@ -452,9 +491,27 @@ describe('Popup App (List Manager)', () => {
 
     // Switch to the Catalog tab
     const catalogTabBtn = container.querySelector('[data-testid="tab-catalog"]') as HTMLButtonElement;
+    expect(catalogTabBtn.getAttribute('role')).toBe('tab');
+    expect(catalogTabBtn.getAttribute('aria-selected')).toBe('false');
     await act(async () => {
       catalogTabBtn.click();
     });
+    expect(catalogTabBtn.getAttribute('aria-selected')).toBe('true');
+
+    // Verify catalog search and filter controls have accessible names (better-accessibility)
+    expect(
+      container.querySelector('[data-testid="catalog-search-input"]')?.getAttribute('aria-label'),
+    ).toBe('Katalogda ara');
+    expect(
+      container
+        .querySelector('[data-testid="catalog-category-filter"]')
+        ?.getAttribute('aria-label'),
+    ).toBe('Kategoriye göre filtrele');
+    expect(
+      container
+        .querySelector('[data-testid="catalog-country-filter"]')
+        ?.getAttribute('aria-label'),
+    ).toBe('Ülkeye göre filtrele');
 
     // Verify all 3 catalog items are rendered with name, description, tags, and rule count
     expect(container.querySelector('[data-testid="catalog-name-spoiler-diziler"]')?.textContent).toBe(
@@ -476,21 +533,35 @@ describe('Popup App (List Manager)', () => {
     );
     expect(container.querySelector('[data-testid="catalog-install-ornek-liste"]')).toBeNull();
 
-    // Filter by category "teknoloji"
-    const categorySelect = container.querySelector(
+    // Filter by category "teknoloji" using the custom dark Dropdown
+    const categoryTrigger = container.querySelector(
       '[data-testid="catalog-category-filter"]',
-    ) as HTMLSelectElement;
+    ) as HTMLButtonElement;
+    expect(categoryTrigger.getAttribute('aria-expanded')).toBe('false');
     await act(async () => {
-      categorySelect.value = 'teknoloji';
-      categorySelect.dispatchEvent(new Event('change', { bubbles: true }));
+      categoryTrigger.click();
     });
+    expect(categoryTrigger.getAttribute('aria-expanded')).toBe('true');
+
+    const techOption = container.querySelector(
+      '[data-testid="catalog-category-filter-option-teknoloji"]',
+    ) as HTMLLIElement;
+    await act(async () => {
+      techOption.click();
+    });
+    expect(categoryTrigger.getAttribute('aria-expanded')).toBe('false');
     expect(container.querySelector('[data-testid="catalog-item-ai-hype-kelimeler"]')).not.toBeNull();
     expect(container.querySelector('[data-testid="catalog-item-spoiler-diziler"]')).toBeNull();
 
     // Reset category filter and filter by search query
     await act(async () => {
-      categorySelect.value = '';
-      categorySelect.dispatchEvent(new Event('change', { bubbles: true }));
+      categoryTrigger.click();
+    });
+    const allCategoriesOption = container.querySelector(
+      '[data-testid="catalog-category-filter-option-all"]',
+    ) as HTMLLIElement;
+    await act(async () => {
+      allCategoriesOption.click();
     });
     const searchInput = container.querySelector(
       '[data-testid="catalog-search-input"]',
@@ -521,5 +592,144 @@ describe('Popup App (List Manager)', () => {
     expect(container.querySelector('[data-testid="active-rules-count"]')?.textContent).toBe(
       'Aktif kural: 6 (1 hesap, 4 kelime, 1 istisna, 0 hesaba bağlı kural)',
     );
+
+    // Filtered empty state names the query and offers a "clear filters" exit
+    await act(async () => {
+      const setter = Object.getOwnPropertyDescriptor(
+        window.HTMLInputElement.prototype,
+        'value',
+      )?.set;
+      setter?.call(searchInput, 'yokboyle');
+      searchInput.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    expect(container.querySelector('[data-testid="catalog-empty"]')?.textContent).toBe(
+      '"yokboyle" için liste bulunamadı',
+    );
+    const clearBtn = container.querySelector(
+      '[data-testid="catalog-clear-filters"]',
+    ) as HTMLButtonElement;
+    await act(async () => {
+      clearBtn.click();
+    });
+    expect(container.querySelector('[data-testid="catalog-empty"]')).toBeNull();
+    expect(container.querySelector('[data-testid="catalog-item-ai-hype-kelimeler"]')).not.toBeNull();
+  });
+
+  it('navigates Home -> Settings -> Preferences & display -> Language, shows country flags, switches locale, and navigates back', async () => {
+    const storage = createMemoryStorage();
+
+    await act(async () => {
+      root.render(<App storage={storage} />);
+    });
+
+    const settingsBtn = container.querySelector(
+      '[data-testid="settings-button"]',
+    ) as HTMLButtonElement;
+    expect(settingsBtn).not.toBeNull();
+    expect(settingsBtn.getAttribute('aria-label')).toBe('Ayarlar');
+    expect(container.querySelector('[data-testid="settings-page"]')).toBeNull();
+
+    // 1. Open Settings page (<   Ayarlar)
+    await act(async () => {
+      settingsBtn.click();
+    });
+
+    expect(container.querySelector('[data-testid="settings-page"]')).not.toBeNull();
+    expect(container.querySelector('[data-testid="settings-page-title"]')?.textContent).toBe(
+      'Ayarlar',
+    );
+    const prefsRow = container.querySelector(
+      '[data-testid="settings-preferences-row"]',
+    ) as HTMLButtonElement;
+    expect(prefsRow).not.toBeNull();
+    expect(prefsRow.textContent).toContain('Tercihler ve görüntüleme');
+
+    // 2. Click "Tercihler ve görüntüleme" to open Preferences page (<   Tercihler ve görüntüleme   ✕)
+    await act(async () => {
+      prefsRow.click();
+    });
+
+    expect(container.querySelector('[data-testid="settings-preferences-page"]')).not.toBeNull();
+    expect(container.querySelector('[data-testid="settings-preferences-title"]')?.textContent).toBe(
+      'Tercihler ve görüntüleme',
+    );
+
+    const languageRow = container.querySelector(
+      '[data-testid="settings-language-row"]',
+    ) as HTMLButtonElement;
+    expect(languageRow).not.toBeNull();
+    expect(languageRow.textContent).toContain('Dil');
+    expect(languageRow.textContent).toContain('🇹🇷');
+    expect(languageRow.textContent).toContain('Türkçe');
+
+    // 3. Click Language row to navigate into Language selection subpage (<   Dil   ✕)
+    await act(async () => {
+      languageRow.click();
+    });
+
+    expect(container.querySelector('[data-testid="settings-language-page"]')).not.toBeNull();
+    expect(container.querySelector('[data-testid="settings-language-title"]')?.textContent).toBe(
+      'Dil',
+    );
+    expect(container.querySelector('[data-testid="settings-menu"]')).not.toBeNull();
+
+    const trOption = container.querySelector(
+      '[data-testid="locale-option-tr"]',
+    ) as HTMLButtonElement;
+    const enOption = container.querySelector(
+      '[data-testid="locale-option-en"]',
+    ) as HTMLButtonElement;
+    expect(trOption.textContent).toContain('🇹🇷');
+    expect(trOption.textContent).toContain('Türkçe');
+    expect(trOption.getAttribute('aria-checked')).toBe('true');
+    expect(enOption.textContent).toContain('🇬🇧');
+    expect(enOption.textContent).toContain('English');
+    expect(enOption.getAttribute('aria-checked')).toBe('false');
+
+    // 4. Select English
+    await act(async () => {
+      enOption.click();
+    });
+
+    expect(container.querySelector('[data-testid="settings-language-title"]')?.textContent).toBe(
+      'Language',
+    );
+    expect(enOption.getAttribute('aria-checked')).toBe('true');
+    expect(document.documentElement.lang).toBe('en');
+
+    // 5. Go back to Preferences & display, then back to Settings, then back to Home
+    const langBackBtn = container.querySelector(
+      '[data-testid="settings-language-back-button"]',
+    ) as HTMLButtonElement;
+    expect(langBackBtn.getAttribute('aria-label')).toBe('Back');
+    await act(async () => {
+      langBackBtn.click();
+    });
+
+    expect(container.querySelector('[data-testid="settings-preferences-title"]')?.textContent).toBe(
+      'Preferences & display',
+    );
+
+    const prefsBackBtn = container.querySelector(
+      '[data-testid="settings-preferences-back-button"]',
+    ) as HTMLButtonElement;
+    await act(async () => {
+      prefsBackBtn.click();
+    });
+
+    expect(container.querySelector('[data-testid="settings-page-title"]')?.textContent).toBe(
+      'Settings',
+    );
+
+    const settingsBackBtn = container.querySelector(
+      '[data-testid="settings-back-button"]',
+    ) as HTMLButtonElement;
+    await act(async () => {
+      settingsBackBtn.click();
+    });
+
+    expect(container.querySelector('[data-testid="settings-page"]')).toBeNull();
+    expect(container.querySelector('[data-testid="tab-installed"]')?.textContent).toBe('My Lists');
+    expect(container.querySelector('[data-testid="tab-catalog"]')?.textContent).toBe('Catalog');
   });
 });

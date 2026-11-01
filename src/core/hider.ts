@@ -146,13 +146,74 @@ export function hideItem(
   const doc = item.ownerDocument;
   const placeholder = doc.createElement('div');
   placeholder.setAttribute(PLACEHOLDER_ATTR, 'true');
+  Object.assign(placeholder.style, {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: '8px',
+    paddingBlock: '8px',
+    paddingInline: '12px',
+    marginBlock: '4px',
+    borderRadius: '10px',
+    border: '1px solid rgba(128, 128, 128, 0.22)',
+    backgroundColor: 'rgba(128, 128, 128, 0.06)',
+    color: 'inherit',
+    fontFamily:
+      "'Inter', 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif",
+    fontSize: '13px',
+    lineHeight: '1.4',
+  });
+
+  const labelGroup = doc.createElement('span');
+  Object.assign(labelGroup.style, {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: '6px',
+    opacity: '0.78',
+    fontWeight: '500',
+  });
+
+  const svgNs = 'http://www.w3.org/2000/svg';
+  const icon = doc.createElementNS(svgNs, 'svg');
+  icon.setAttribute('width', '14');
+  icon.setAttribute('height', '14');
+  icon.setAttribute('viewBox', '0 0 16 16');
+  icon.setAttribute('fill', 'none');
+  icon.setAttribute('stroke', 'currentColor');
+  icon.setAttribute('stroke-width', '1.75');
+  icon.setAttribute('stroke-linecap', 'round');
+  icon.setAttribute('stroke-linejoin', 'round');
+  icon.setAttribute('aria-hidden', 'true');
+  const shieldPath = doc.createElementNS(svgNs, 'path');
+  shieldPath.setAttribute(
+    'd',
+    'M8 1.75L2.75 4v3.75c0 3.45 2.24 5.69 5.25 6.5 3.01-.81 5.25-3.05 5.25-6.5V4L8 1.75Z',
+  );
+  icon.appendChild(shieldPath);
 
   const label = doc.createElement('span');
   label.textContent = `${messages.hiddenNotice} · `;
 
+  labelGroup.appendChild(icon);
+  labelGroup.appendChild(label);
+
   const button = doc.createElement('button');
   button.type = 'button';
   button.textContent = messages.showButton;
+  Object.assign(button.style, {
+    minHeight: '26px',
+    paddingBlock: '3px',
+    paddingInline: '10px',
+    borderRadius: '6px',
+    border: '1px solid rgba(128, 128, 128, 0.3)',
+    backgroundColor: 'transparent',
+    color: 'inherit',
+    fontFamily: 'inherit',
+    fontSize: '12px',
+    fontWeight: '600',
+    lineHeight: '1.25',
+    cursor: 'pointer',
+  });
   button.addEventListener('click', (event) => {
     event.stopPropagation();
     placeholder.remove();
@@ -161,7 +222,7 @@ export function hideItem(
     markProcessed(item, 'revealed');
   });
 
-  placeholder.appendChild(label);
+  placeholder.appendChild(labelGroup);
   placeholder.appendChild(button);
   item.parentNode?.insertBefore(placeholder, item);
 
