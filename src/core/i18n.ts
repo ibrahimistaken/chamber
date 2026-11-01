@@ -18,6 +18,16 @@ export interface Messages {
   readonly appTitle: string;
   readonly hiddenNotice: string;
   readonly showButton: string;
+  readonly tabInstalledLists: string;
+  readonly tabCatalog: string;
+  readonly catalogLoading: string;
+  readonly catalogSearchPlaceholder: string;
+  readonly catalogAllCategories: string;
+  readonly catalogAllCountries: string;
+  readonly catalogEmpty: string;
+  readonly catalogInstallButton: string;
+  readonly catalogInstalledBadge: string;
+  readonly catalogRuleCount: (count: number) => string;
   readonly installedListsHeading: string;
   readonly noInstalledLists: string;
   readonly listMetaSummary: (info: ListMetaSummaryInput) => string;
@@ -44,6 +54,16 @@ const MESSAGES: Readonly<Record<Locale, Messages>> = {
     appTitle: 'Chamber',
     hiddenNotice: 'Gizlendi',
     showButton: 'Göster',
+    tabInstalledLists: 'Listelerim',
+    tabCatalog: 'Katalog',
+    catalogLoading: 'Katalog yükleniyor...',
+    catalogSearchPlaceholder: 'Liste veya konu ara...',
+    catalogAllCategories: 'Tüm kategoriler',
+    catalogAllCountries: 'Tüm ülkeler',
+    catalogEmpty: 'Eşleşen liste bulunamadı.',
+    catalogInstallButton: 'Kur',
+    catalogInstalledBadge: 'Kurulu',
+    catalogRuleCount: (count) => `${count} kural`,
     installedListsHeading: 'Yüklü Listeler',
     noInstalledLists: 'Henüz yüklü liste yok.',
     listMetaSummary: ({ ruleCount, version, updatedAtText }) =>
@@ -70,6 +90,16 @@ const MESSAGES: Readonly<Record<Locale, Messages>> = {
     appTitle: 'Chamber',
     hiddenNotice: 'Hidden',
     showButton: 'Show',
+    tabInstalledLists: 'My Lists',
+    tabCatalog: 'Catalog',
+    catalogLoading: 'Loading catalog...',
+    catalogSearchPlaceholder: 'Search lists or topics...',
+    catalogAllCategories: 'All categories',
+    catalogAllCountries: 'All countries',
+    catalogEmpty: 'No matching lists found.',
+    catalogInstallButton: 'Install',
+    catalogInstalledBadge: 'Installed',
+    catalogRuleCount: (count) => `${count} rules`,
     installedListsHeading: 'Installed Lists',
     noInstalledLists: 'No lists installed yet.',
     listMetaSummary: ({ ruleCount, version, updatedAtText }) =>

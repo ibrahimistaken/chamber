@@ -1,0 +1,103 @@
+{
+  "version": 1,
+  "lists": [
+    {
+      "id": "ai-hype-kelimeler",
+      "name": "AI Hype ve Clickbait Filtresi",
+      "description": "Yapay zeka abartılarını, 'yazılımcılık bitti' tarzı sansasyonel paylaşımları ve şablon AI etkileşim tuzaklarını gizler.",
+      "author": "chamber",
+      "version": 1,
+      "tags": {
+        "country": "US",
+        "lang": "en",
+        "category": "teknoloji"
+      },
+      "ruleCount": 10,
+      "path": "lists/ai-hype-kelimeler.json"
+    },
+    {
+      "id": "etkilesim-tuzagi-tr",
+      "name": "Etkileşim Tuzağı ve Çekiliş Filtresi",
+      "description": "Beğen-retweetle çekilişlerini, burç yorumu zincirlerini ve yapay gündem/etkileşim kasma kalıplarını gizler.",
+      "author": "chamber",
+      "version": 1,
+      "tags": {
+        "country": "TR",
+        "lang": "tr",
+        "category": "yasam"
+      },
+      "ruleCount": 8,
+      "path": "lists/etkilesim-tuzagi-tr.json"
+    },
+    {
+      "id": "futbol-taraftar-polemik",
+      "name": "Futbol Hakem ve Transfer Polemikleri",
+      "description": "Maç sonu hakem tartışmalarını, VAR polemiklerini ve doğrulanmamış transfer duyumu paylaşımlarını filtreler.",
+      "author": "chamber",
+      "version": 1,
+      "tags": {
+        "country": "TR",
+        "lang": "tr",
+        "category": "spor"
+      },
+      "ruleCount": 10,
+      "path": "lists/futbol-taraftar-polemik.json"
+    },
+    {
+      "id": "kripto-hype-kelimeler",
+      "name": "Kripto ve Finansal Hype Filtresi",
+      "description": "Kripto para pompalama, airdrop çekilişleri, '100x yapacak sepet' ve yatırım tavsiyesi görünümlü spam paylaşımları gizler.",
+      "author": "chamber",
+      "version": 1,
+      "tags": {
+        "country": "TR",
+        "lang": "tr",
+        "category": "finans"
+      },
+      "ruleCount": 10,
+      "path": "lists/kripto-hype-kelimeler.json"
+    },
+    {
+      "id": "ornek-liste",
+      "name": "Örnek Liste",
+      "description": "Spoiler istemeyenler için şema ve eşleştirme davranışını gösteren küçük bir örnek liste.",
+      "author": "chamber",
+      "version": 1,
+      "tags": {
+        "country": "TR",
+        "lang": "tr",
+        "category": "spoiler"
+      },
+      "ruleCount": 5,
+      "path": "lists/ornek-liste.json"
+    },
+    {
+      "id": "siyaset-tr-kelimeler",
+      "name": "Gündem ve Siyaset Kelimeleri (TR)",
+      "description": "Günlük siyaset, seçim, meclis ve parti tartışmalarından uzak kalmak isteyenler için genel siyasi terimler listesi.",
+      "author": "chamber",
+      "version": 1,
+      "tags": {
+        "country": "TR",
+        "lang": "tr",
+        "category": "siyaset"
+      },
+      "ruleCount": 12,
+      "path": "lists/siyaset-tr-kelimeler.json"
+    },
+    {
+      "id": "spoiler-diziler",
+      "name": "Dizi ve Film Spoiler Filtresi",
+      "description": "Dizi ve filmlerdeki sürpriz bozan (spoiler) paylaşımları, final sahnesi ve bölüm özeti tartışmalarını gizler.",
+      "author": "chamber",
+      "version": 1,
+      "tags": {
+        "country": "TR",
+        "lang": "tr",
+        "category": "eglence"
+      },
+      "ruleCount": 11,
+      "path": "lists/spoiler-diziler.json"
+    }
+  ]
+}

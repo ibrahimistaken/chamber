@@ -1,0 +1,32 @@
+{
+  "$schema": "../schema/list.schema.json",
+  "id": "spoiler-diziler",
+  "name": "Dizi ve Film Spoiler Filtresi",
+  "description": "Dizi ve filmlerdeki sürpriz bozan (spoiler) paylaşımları, final sahnesi ve bölüm özeti tartışmalarını gizler.",
+  "author": "chamber",
+  "version": 1,
+  "tags": {
+    "country": "TR",
+    "lang": "tr",
+    "category": "eglence"
+  },
+  "mode": "collapse",
+  "rules": {
+    "keywords": [
+      "spoiler",
+      { "text": "sezon final", "match": "prefix" },
+      { "text": "bölüm final", "match": "prefix" },
+      "son sahne",
+      "fragman analizi",
+      "sürpriz son",
+      "ölüm sahnesi",
+      "post credits"
+    ],
+    "exclude": [
+      "spoiler yok",
+      "spoilersız",
+      "spoilersiz inceleme"
+    ]
+  }
+}
+

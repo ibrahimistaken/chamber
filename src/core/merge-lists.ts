@@ -1,11 +1,11 @@
-import type { HideMode } from '../adapters/types';
+import type { HideMode } from '../adapters/types.ts';
 import {
   compileRules,
   RuleValidationError,
   type CompiledRules,
   type ListRules,
-} from './matcher';
-import { validateListObject, type ValidatedList } from './validate-list';
+} from './matcher.ts';
+import { validateListObject, type ValidatedList } from './validate-list.ts';
 
 export interface InstalledListRecord {
   readonly id: string;

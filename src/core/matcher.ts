@@ -5,7 +5,7 @@
  * Deliberately avoids building RegExps from list content: lists are untrusted
  * input, and v1 has no regex support (see CLAUDE.md).
  */
-import { normalize } from './normalize';
+import { normalize } from './normalize.ts';
 
 export type Platform = 'x' | 'youtube' | 'reddit' | 'instagram' | 'tiktok';
 
@@ -81,7 +81,10 @@ export const MIN_PREFIX_LENGTH = 4;
 
 /** Thrown when a list contains a rule the engine refuses to compile. */
 export class RuleValidationError extends Error {
-  override readonly name = 'RuleValidationError';
+  constructor(message: string) {
+    super(message);
+    this.name = 'RuleValidationError';
+  }
 }
 
 const WORD_CHAR = /[\p{L}\p{N}]/u;

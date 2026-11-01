@@ -5,7 +5,7 @@
  * which violates both MV3 CSP and CLAUDE.md Invariant #3 ("never use eval /
  * new Function"). Ajv stays in devDependencies to cross-check this validator in tests.
  */
-import type { HideMode } from '../adapters/types';
+import type { HideMode } from '../adapters/types.ts';
 import {
   MIN_PREFIX_LENGTH,
   type AccountRule,
@@ -14,7 +14,13 @@ import {
   type MatchMode,
   type Platform,
   type ScopedRule,
-} from './matcher';
+} from './matcher.ts';
+
+export interface ListTags {
+  readonly country?: string;
+  readonly lang?: string;
+  readonly category?: string;
+}
 
 export interface ValidatedList {
   readonly id: string;
@@ -22,6 +28,7 @@ export interface ValidatedList {
   readonly description?: string;
   readonly author: string;
   readonly version: number;
+  readonly tags?: ListTags;
   readonly mode?: HideMode;
   readonly includes?: readonly string[];
   readonly rules: ListRules;
@@ -332,6 +339,7 @@ export function validateListObject(input: unknown): ValidationResult {
       description: input.description as string | undefined,
       author: input.author,
       version: input.version,
+      tags: input.tags as ListTags | undefined,
       mode: input.mode as HideMode | undefined,
       includes: input.includes as readonly string[] | undefined,
       rules: validatedRules,

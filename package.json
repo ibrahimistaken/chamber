@@ -12,6 +12,7 @@
     "zip": "wxt zip",
     "zip:firefox": "wxt zip -b firefox",
     "compile": "tsc --noEmit",
+    "build:catalog": "node --experimental-strip-types scripts/build-catalog.ts",
     "postinstall": "wxt prepare",
     "test": "vitest run",
     "test:watch": "vitest"

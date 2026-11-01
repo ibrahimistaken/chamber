@@ -367,4 +367,159 @@ describe('Popup App (List Manager)', () => {
     expect(error?.textContent).toContain('Şema doğrulama hatası:');
     expect(error?.textContent).toContain('its last word must be at least 4 characters');
   });
+
+  it('loads the Catalog tab from index.json, filters by search/tags, marks installed lists, and installs via URL flow', async () => {
+    const storage = createMemoryStorage();
+
+    // Pre-install "ornek-liste" so it appears as "Kurulu" in the catalog
+    await saveInstalledLists(
+      [
+        {
+          id: 'ornek-liste',
+          raw: exampleList,
+          version: 1,
+          enabled: true,
+          updatedAt: Date.now(),
+        },
+      ],
+      storage,
+    );
+
+    const spoilerList = {
+      id: 'spoiler-diziler',
+      name: 'Dizi ve Film Spoiler Filtresi',
+      description: 'Spoiler paylaşımlarını gizler.',
+      author: 'chamber',
+      version: 1,
+      tags: { country: 'TR', lang: 'tr', category: 'eglence' },
+      rules: {
+        keywords: ['spoiler', 'son sahne'],
+      },
+    };
+
+    const catalogIndex = {
+      version: 1 as const,
+      lists: [
+        {
+          id: 'ornek-liste',
+          name: 'Örnek Liste',
+          description: 'Örnek açıklama',
+          author: 'chamber',
+          version: 1,
+          tags: { country: 'TR', lang: 'tr', category: 'spoiler' },
+          ruleCount: 5,
+          path: 'lists/ornek-liste.json',
+        },
+        {
+          id: 'spoiler-diziler',
+          name: 'Dizi ve Film Spoiler Filtresi',
+          description: 'Spoiler paylaşımlarını gizler.',
+          author: 'chamber',
+          version: 1,
+          tags: { country: 'TR', lang: 'tr', category: 'eglence' },
+          ruleCount: 2,
+          path: 'lists/spoiler-diziler.json',
+        },
+        {
+          id: 'ai-hype-kelimeler',
+          name: 'AI Hype ve Clickbait Filtresi',
+          description: 'Yapay zeka abartılarını gizler.',
+          author: 'chamber',
+          version: 1,
+          tags: { country: 'US', lang: 'en', category: 'teknoloji' },
+          ruleCount: 8,
+          path: 'lists/ai-hype-kelimeler.json',
+        },
+      ],
+    };
+
+    const fetchFn: FetchLike = vi.fn(async (url: string) => {
+      if (url === 'https://raw.githubusercontent.com/ibrahimistaken/chamber/main/index.json') {
+        return new Response(JSON.stringify(catalogIndex), { status: 200 });
+      }
+      if (
+        url ===
+        'https://raw.githubusercontent.com/ibrahimistaken/chamber/main/lists/spoiler-diziler.json'
+      ) {
+        return new Response(JSON.stringify(spoilerList), { status: 200 });
+      }
+      return new Response('Not found', { status: 404 });
+    });
+
+    await act(async () => {
+      root.render(<App storage={storage} fetchFn={fetchFn} />);
+    });
+
+    // Switch to the Catalog tab
+    const catalogTabBtn = container.querySelector('[data-testid="tab-catalog"]') as HTMLButtonElement;
+    await act(async () => {
+      catalogTabBtn.click();
+    });
+
+    // Verify all 3 catalog items are rendered with name, description, tags, and rule count
+    expect(container.querySelector('[data-testid="catalog-name-spoiler-diziler"]')?.textContent).toBe(
+      'Dizi ve Film Spoiler Filtresi',
+    );
+    expect(container.querySelector('[data-testid="catalog-desc-spoiler-diziler"]')?.textContent).toBe(
+      'Spoiler paylaşımlarını gizler.',
+    );
+    expect(container.querySelector('[data-testid="catalog-tags-spoiler-diziler"]')?.textContent).toBe(
+      'TR · eglence',
+    );
+    expect(container.querySelector('[data-testid="catalog-rules-spoiler-diziler"]')?.textContent).toBe(
+      '2 kural',
+    );
+
+    // "ornek-liste" is already installed -> shows "Kurulu" badge instead of "Kur" button
+    expect(container.querySelector('[data-testid="catalog-installed-ornek-liste"]')?.textContent).toBe(
+      'Kurulu',
+    );
+    expect(container.querySelector('[data-testid="catalog-install-ornek-liste"]')).toBeNull();
+
+    // Filter by category "teknoloji"
+    const categorySelect = container.querySelector(
+      '[data-testid="catalog-category-filter"]',
+    ) as HTMLSelectElement;
+    await act(async () => {
+      categorySelect.value = 'teknoloji';
+      categorySelect.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+    expect(container.querySelector('[data-testid="catalog-item-ai-hype-kelimeler"]')).not.toBeNull();
+    expect(container.querySelector('[data-testid="catalog-item-spoiler-diziler"]')).toBeNull();
+
+    // Reset category filter and filter by search query
+    await act(async () => {
+      categorySelect.value = '';
+      categorySelect.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+    const searchInput = container.querySelector(
+      '[data-testid="catalog-search-input"]',
+    ) as HTMLInputElement;
+    await act(async () => {
+      const setter = Object.getOwnPropertyDescriptor(
+        window.HTMLInputElement.prototype,
+        'value',
+      )?.set;
+      setter?.call(searchInput, 'Dizi ve Film');
+      searchInput.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    expect(container.querySelector('[data-testid="catalog-item-spoiler-diziler"]')).not.toBeNull();
+    expect(container.querySelector('[data-testid="catalog-item-ai-hype-kelimeler"]')).toBeNull();
+
+    // Install "spoiler-diziler" from catalog using the "Kur" button
+    const installBtn = container.querySelector(
+      '[data-testid="catalog-install-spoiler-diziler"]',
+    ) as HTMLButtonElement;
+    await act(async () => {
+      installBtn.click();
+    });
+
+    // Now "spoiler-diziler" should be marked as "Kurulu" and active rule count should increase
+    expect(
+      container.querySelector('[data-testid="catalog-installed-spoiler-diziler"]')?.textContent,
+    ).toBe('Kurulu');
+    expect(container.querySelector('[data-testid="active-rules-count"]')?.textContent).toBe(
+      'Aktif kural: 6 (1 hesap, 4 kelime, 1 istisna, 0 hesaba bağlı kural)',
+    );
+  });
 });

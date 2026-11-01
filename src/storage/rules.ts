@@ -1,17 +1,17 @@
-import type { HideMode } from '../adapters/types';
+import type { HideMode } from '../adapters/types.ts';
 import {
   compileRules,
   type CompiledKeyword,
   type CompiledRules,
   type CompiledScopedRule,
   type ListRules,
-} from '../core/matcher';
+} from '../core/matcher.ts';
 import {
   resolveAndCompileLists,
   type InstalledListRecord,
   type MergeListsResult,
-} from '../core/merge-lists';
-import { validateListObject } from '../core/validate-list';
+} from '../core/merge-lists.ts';
+import { validateListObject } from '../core/validate-list.ts';
 
 export const ACTIVE_RULES_KEY = 'chamber:activeRules';
 export const INSTALLED_LISTS_KEY = 'chamber:installedLists';

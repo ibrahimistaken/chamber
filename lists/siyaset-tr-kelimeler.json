@@ -1,0 +1,33 @@
+{
+  "$schema": "../schema/list.schema.json",
+  "id": "siyaset-tr-kelimeler",
+  "name": "Gündem ve Siyaset Kelimeleri (TR)",
+  "description": "Günlük siyaset, seçim, meclis ve parti tartışmalarından uzak kalmak isteyenler için genel siyasi terimler listesi.",
+  "author": "chamber",
+  "version": 1,
+  "tags": {
+    "country": "TR",
+    "lang": "tr",
+    "category": "siyaset"
+  },
+  "mode": "collapse",
+  "rules": {
+    "keywords": [
+      { "text": "seçim anket", "match": "prefix" },
+      { "text": "milletvekil", "match": "prefix" },
+      { "text": "koalisyon", "match": "prefix" },
+      "genel seçim",
+      "yerel seçim",
+      "meclis oturumu",
+      "grup toplantısı",
+      "kabine revizyonu",
+      "oy oranı",
+      "sandık güvenliği"
+    ],
+    "exclude": [
+      "öğrenci temsilcisi seçimi",
+      "apartman yönetimi seçimi"
+    ]
+  }
+}
+

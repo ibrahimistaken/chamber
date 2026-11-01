@@ -1,0 +1,29 @@
+{
+  "$schema": "../schema/list.schema.json",
+  "id": "etkilesim-tuzagi-tr",
+  "name": "Etkileşim Tuzağı ve Çekiliş Filtresi",
+  "description": "Beğen-retweetle çekilişlerini, burç yorumu zincirlerini ve yapay gündem/etkileşim kasma kalıplarını gizler.",
+  "author": "chamber",
+  "version": 1,
+  "tags": {
+    "country": "TR",
+    "lang": "tr",
+    "category": "yasam"
+  },
+  "mode": "collapse",
+  "rules": {
+    "keywords": [
+      "rt ve fav",
+      "takip edip rt",
+      "çekiliş sonucu",
+      "bu tweeti beğen",
+      "zincir başlıyor",
+      { "text": "burç yorum", "match": "prefix" },
+      "sayı bırak"
+    ],
+    "exclude": [
+      "resmi kura çekilişi"
+    ]
+  }
+}
+

@@ -1,0 +1,31 @@
+{
+  "$schema": "../schema/list.schema.json",
+  "id": "ai-hype-kelimeler",
+  "name": "AI Hype ve Clickbait Filtresi",
+  "description": "Yapay zeka abartılarını, 'yazılımcılık bitti' tarzı sansasyonel paylaşımları ve şablon AI etkileşim tuzaklarını gizler.",
+  "author": "chamber",
+  "version": 1,
+  "tags": {
+    "country": "US",
+    "lang": "en",
+    "category": "teknoloji"
+  },
+  "mode": "collapse",
+  "rules": {
+    "keywords": [
+      "agi achieved",
+      "rip programmers",
+      "software engineering is dead",
+      "10x your productivity",
+      "prompt engineering secret",
+      { "text": "revolutionary model", "match": "prefix" },
+      "replace all developers",
+      "comment ai and i will dm"
+    ],
+    "exclude": [
+      "agi benchmark paper",
+      "peer reviewed study"
+    ]
+  }
+}
+

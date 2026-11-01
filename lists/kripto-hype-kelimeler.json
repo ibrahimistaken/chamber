@@ -1,0 +1,31 @@
+{
+  "$schema": "../schema/list.schema.json",
+  "id": "kripto-hype-kelimeler",
+  "name": "Kripto ve Finansal Hype Filtresi",
+  "description": "Kripto para pompalama, airdrop çekilişleri, '100x yapacak sepet' ve yatırım tavsiyesi görünümlü spam paylaşımları gizler.",
+  "author": "chamber",
+  "version": 1,
+  "tags": {
+    "country": "TR",
+    "lang": "tr",
+    "category": "finans"
+  },
+  "mode": "collapse",
+  "rules": {
+    "keywords": [
+      "100x potansiyel",
+      "boğa sepeti",
+      "altcoin sepeti",
+      "airdrop fırsatı",
+      "kesin yükselecek",
+      { "text": "kaldıraçlı işlem", "match": "prefix" },
+      "to the moon",
+      "acil alım fırsatı"
+    ],
+    "exclude": [
+      "yatırım tavsiyesi değildir",
+      "blokzincir mimarisi"
+    ]
+  }
+}
+

@@ -1,0 +1,31 @@
+{
+  "$schema": "../schema/list.schema.json",
+  "id": "futbol-taraftar-polemik",
+  "name": "Futbol Hakem ve Transfer Polemikleri",
+  "description": "Maç sonu hakem tartışmalarını, VAR polemiklerini ve doğrulanmamış transfer duyumu paylaşımlarını filtreler.",
+  "author": "chamber",
+  "version": 1,
+  "tags": {
+    "country": "TR",
+    "lang": "tr",
+    "category": "spor"
+  },
+  "mode": "collapse",
+  "rules": {
+    "keywords": [
+      "hakem skandalı",
+      "var kayıtları",
+      "penaltı pozisyonu",
+      "transfer bombası",
+      "kulis bilgisi",
+      { "text": "sözleşme detay", "match": "prefix" },
+      "yabancı hakem",
+      "ofsayt çizgisi"
+    ],
+    "exclude": [
+      "maç özeti",
+      "resmi açıklama"
+    ]
+  }
+}
+

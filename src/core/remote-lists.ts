@@ -1,16 +1,16 @@
-import { compileRules, RuleValidationError } from './matcher';
+import { compileRules, RuleValidationError } from './matcher.ts';
 import {
   resolveAndCompileLists,
   type InstalledListRecord,
   type MergeListsResult,
-} from './merge-lists';
-import { validateListObject, type ValidatedList } from './validate-list';
+} from './merge-lists.ts';
+import { validateListObject, type ValidatedList } from './validate-list.ts';
 import {
   getInstalledLists,
   saveInstalledLists,
   upsertInstalledList,
   type StorageAreaLike,
-} from '../storage/rules';
+} from '../storage/rules.ts';
 
 export const MAX_LIST_BYTES = 1_048_576; // 1 MB
 export const DEFAULT_FETCH_TIMEOUT_MS = 10_000; // 10 seconds
