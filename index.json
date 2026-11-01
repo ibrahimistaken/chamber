@@ -98,6 +98,20 @@
       },
       "ruleCount": 11,
       "path": "lists/spoiler-diziler.json"
+    },
+    {
+      "id": "turkce-rap-sanatcilari",
+      "name": "Türkçe Rap ve Müzik Gündemi",
+      "description": "BLOK3, Ati242, Reynmen, Lvbel C5 ve diğer popüler Türkçe rap/drill sanatçıları, parçaları, dissleşmeleri ve magazin polemiklerini filtreler.",
+      "author": "chamber",
+      "version": 1,
+      "tags": {
+        "country": "TR",
+        "lang": "tr",
+        "category": "muzik"
+      },
+      "ruleCount": 96,
+      "path": "lists/turkce-rap-sanatcilari.json"
     }
   ]
 }
