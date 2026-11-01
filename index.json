@@ -142,6 +142,20 @@
       "path": "lists/ornek-liste.json"
     },
     {
+      "id": "profanity-filter",
+      "name": "Küfür, Argo ve Hakaret Filtresi",
+      "description": "Türkçe ve İngilizce doğrudan küfürleri, yaygın kısaltmaları (oç, oe, amk, aq, stfu) ve argo hakaretleri filtreler.",
+      "author": "chamber",
+      "version": 1,
+      "tags": {
+        "country": "TR",
+        "lang": "tr",
+        "category": "guvenlik"
+      },
+      "ruleCount": 115,
+      "path": "lists/profanity-filter.json"
+    },
+    {
       "id": "religious-hate-speech",
       "name": "Dini Nefret ve Ayrımcılık Filtresi",
       "description": "Antisemitik, islamofobik ve Hristiyanlık karşıtı nefret söylemleri ile komplo teorilerini filtreler; siyasi lider, hükümet ve teolojik eleştirileri muaf tutar.",
