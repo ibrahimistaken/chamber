@@ -86,6 +86,20 @@
       "path": "lists/futbol-taraftar-polemik.json"
     },
     {
+      "id": "germany-politics-de",
+      "name": "Deutsche Politik & Bundestag Filter",
+      "description": "Filtert parteipolitische Debatten, Bundestag-Streitigkeiten, Koalitionsstreit und Wahlkampfgeräusche.",
+      "author": "chamber",
+      "version": 1,
+      "tags": {
+        "country": "DE",
+        "lang": "de",
+        "category": "siyaset"
+      },
+      "ruleCount": 54,
+      "path": "lists/germany-politics-de.json"
+    },
+    {
       "id": "influencer-drama-en",
       "name": "Influencer Drama & Paparazzi Filter",
       "description": "Filters celebrity feuds, influencer boxing matches, exposed videos, and tabloid clickbait.",
@@ -196,6 +210,20 @@
       },
       "ruleCount": 96,
       "path": "lists/turkce-rap-sanatcilari.json"
+    },
+    {
+      "id": "us-politics-filter",
+      "name": "US Politics & Elections Filter",
+      "description": "Filters partisan US political debates, election campaigns, Congressional disputes, and White House talking points.",
+      "author": "chamber",
+      "version": 1,
+      "tags": {
+        "country": "US",
+        "lang": "en",
+        "category": "siyaset"
+      },
+      "ruleCount": 46,
+      "path": "lists/us-politics-filter.json"
     }
   ]
 }
