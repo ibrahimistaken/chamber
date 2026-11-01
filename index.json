@@ -48,13 +48,13 @@
       "name": "Kripto ve Finansal Hype Filtresi",
       "description": "Kripto para pompalama, airdrop çekilişleri, '100x yapacak sepet' ve yatırım tavsiyesi görünümlü spam paylaşımları gizler.",
       "author": "chamber",
-      "version": 1,
+      "version": 2,
       "tags": {
         "country": "TR",
         "lang": "tr",
         "category": "finans"
       },
-      "ruleCount": 10,
+      "ruleCount": 172,
       "path": "lists/kripto-hype-kelimeler.json"
     },
     {
