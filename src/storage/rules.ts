@@ -6,8 +6,15 @@ import {
   type CompiledScopedRule,
   type ListRules,
 } from '../core/matcher';
+import {
+  resolveAndCompileLists,
+  type InstalledListRecord,
+  type MergeListsResult,
+} from '../core/merge-lists';
+import { validateListObject } from '../core/validate-list';
 
 export const ACTIVE_RULES_KEY = 'chamber:activeRules';
+export const INSTALLED_LISTS_KEY = 'chamber:installedLists';
 
 export interface StoredActiveRules {
   readonly accounts: readonly string[];
@@ -68,6 +75,28 @@ function isStoredActiveRules(value: unknown): value is StoredActiveRules {
   );
 }
 
+function isInstalledListRecord(value: unknown): value is InstalledListRecord {
+  if (typeof value !== 'object' || value === null) return false;
+  const obj = value as Record<string, unknown>;
+  return (
+    typeof obj.id === 'string' &&
+    'raw' in obj &&
+    typeof obj.version === 'number' &&
+    typeof obj.enabled === 'boolean' &&
+    typeof obj.updatedAt === 'number'
+  );
+}
+
+function toStoredActiveRules(rules: CompiledRules, mode: HideMode): StoredActiveRules {
+  return {
+    accounts: [...rules.accounts],
+    keywords: rules.keywords,
+    exclude: rules.exclude,
+    scoped: rules.scoped,
+    mode,
+  };
+}
+
 /**
  * Converts a raw stored value into an `ActiveRulesConfig`, falling back to an
  * empty rule set with "collapse" mode when the value is absent or cleared.
@@ -92,6 +121,127 @@ export function parseStoredActiveRules(stored: unknown): ActiveRulesConfig {
 }
 
 /**
+ * Reads all installed list records from storage.
+ */
+export async function getInstalledLists(
+  storage?: StorageAreaLike,
+): Promise<InstalledListRecord[]> {
+  const area = getStorageArea(storage);
+  const raw = await area.get(INSTALLED_LISTS_KEY);
+  const list = raw[INSTALLED_LISTS_KEY];
+  if (!Array.isArray(list)) return [];
+  return list.filter(isInstalledListRecord);
+}
+
+/**
+ * Resolves `includes`, isolates broken lists, compiles all enabled valid lists,
+ * and persists both the updated list records and the compiled active rules cache.
+ */
+export async function saveInstalledLists(
+  records: readonly InstalledListRecord[],
+  storage?: StorageAreaLike,
+): Promise<MergeListsResult> {
+  const area = getStorageArea(storage);
+  const merged = resolveAndCompileLists(records);
+  await area.set({
+    [INSTALLED_LISTS_KEY]: merged.records,
+    [ACTIVE_RULES_KEY]: toStoredActiveRules(merged.rules, merged.mode),
+  });
+  return merged;
+}
+
+export interface UpsertListOptions {
+  readonly raw: unknown;
+  readonly sourceUrl?: string;
+  readonly enabled?: boolean;
+  readonly updatedAt?: number;
+}
+
+export type UpsertListResult =
+  | {
+      readonly ok: true;
+      readonly record: InstalledListRecord;
+      readonly merged: MergeListsResult;
+    }
+  | {
+      readonly ok: false;
+      readonly error: string;
+      readonly schemaError: boolean;
+    };
+
+/**
+ * Validates and installs (or updates) a list record, then recompiles active rules.
+ * If the new list fails validation or introduces a circular `includes` reference,
+ * existing installed lists remain untouched and the error is returned.
+ */
+export async function upsertInstalledList(
+  options: UpsertListOptions,
+  storage?: StorageAreaLike,
+): Promise<UpsertListResult> {
+  const validation = validateListObject(options.raw);
+  if (!validation.ok) {
+    return { ok: false, error: validation.error, schemaError: true };
+  }
+
+  const { list } = validation;
+  const candidate: InstalledListRecord = {
+    id: list.id,
+    ...(options.sourceUrl !== undefined ? { sourceUrl: options.sourceUrl } : {}),
+    raw: options.raw,
+    version: list.version,
+    enabled: options.enabled ?? true,
+    updatedAt: options.updatedAt ?? Date.now(),
+  };
+
+  const existing = await getInstalledLists(storage);
+  const nextRecords = existing.some((r) => r.id === candidate.id)
+    ? existing.map((r) => (r.id === candidate.id ? candidate : r))
+    : [...existing, candidate];
+
+  const preview = resolveAndCompileLists(nextRecords);
+  const savedRecord = preview.records.find((r) => r.id === candidate.id)!;
+
+  if (savedRecord.error !== undefined) {
+    return { ok: false, error: savedRecord.error, schemaError: true };
+  }
+
+  const area = getStorageArea(storage);
+  await area.set({
+    [INSTALLED_LISTS_KEY]: preview.records,
+    [ACTIVE_RULES_KEY]: toStoredActiveRules(preview.rules, preview.mode),
+  });
+
+  return { ok: true, record: savedRecord, merged: preview };
+}
+
+/**
+ * Enables or disables an installed list by id and recompiles active rules.
+ */
+export async function setListEnabled(
+  id: string,
+  enabled: boolean,
+  storage?: StorageAreaLike,
+): Promise<MergeListsResult> {
+  const existing = await getInstalledLists(storage);
+  const updated = existing.map((record) =>
+    record.id === id ? { ...record, enabled } : record,
+  );
+  return saveInstalledLists(updated, storage);
+}
+
+/**
+ * Removes an installed list by id and recompiles active rules.
+ */
+export async function removeInstalledList(
+  id: string,
+  storage?: StorageAreaLike,
+): Promise<MergeListsResult> {
+  const existing = await getInstalledLists(storage);
+  const updated = existing.filter((record) => record.id !== id);
+  return saveInstalledLists(updated, storage);
+}
+
+/**
  * Reads the compiled active rules from chrome.storage.local.
  * Returns an empty rule set with default "collapse" mode when nothing is stored.
  */
@@ -112,15 +262,7 @@ export async function setActiveRules(
 ): Promise<ActiveRulesConfig> {
   const area = getStorageArea(storage);
   const compiled = compileRules(ruleSets);
-  const payload: StoredActiveRules = {
-    accounts: [...compiled.accounts],
-    keywords: compiled.keywords,
-    exclude: compiled.exclude,
-    scoped: compiled.scoped,
-    mode,
-  };
-
-  await area.set({ [ACTIVE_RULES_KEY]: payload });
+  await area.set({ [ACTIVE_RULES_KEY]: toStoredActiveRules(compiled, mode) });
   return { rules: compiled, mode };
 }
 

@@ -8,10 +8,28 @@ export interface RuleCounts {
   readonly scoped: number;
 }
 
+export interface ListMetaSummaryInput {
+  readonly ruleCount: number;
+  readonly version: number;
+  readonly updatedAtText: string;
+}
+
 export interface Messages {
   readonly appTitle: string;
   readonly hiddenNotice: string;
   readonly showButton: string;
+  readonly installedListsHeading: string;
+  readonly noInstalledLists: string;
+  readonly listMetaSummary: (info: ListMetaSummaryInput) => string;
+  readonly toggleListAriaLabel: (name: string) => string;
+  readonly deleteListButton: string;
+  readonly deleteListAriaLabel: (name: string) => string;
+  readonly listErrorLabel: (error: string) => string;
+  readonly addFromUrlLabel: string;
+  readonly addFromUrlPlaceholder: string;
+  readonly addFromUrlButton: string;
+  readonly addingFromUrlStatus: string;
+  readonly advancedSectionTitle: string;
   readonly pasteListLabel: string;
   readonly pasteListPlaceholder: string;
   readonly loadListButton: string;
@@ -26,6 +44,19 @@ const MESSAGES: Readonly<Record<Locale, Messages>> = {
     appTitle: 'Chamber',
     hiddenNotice: 'Gizlendi',
     showButton: 'Göster',
+    installedListsHeading: 'Yüklü Listeler',
+    noInstalledLists: 'Henüz yüklü liste yok.',
+    listMetaSummary: ({ ruleCount, version, updatedAtText }) =>
+      `${ruleCount} kural · v${version} · Son güncelleme: ${updatedAtText}`,
+    toggleListAriaLabel: (name) => `${name} listesini aç/kapat`,
+    deleteListButton: 'Sil',
+    deleteListAriaLabel: (name) => `${name} listesini sil`,
+    listErrorLabel: (error) => `Hata: ${error}`,
+    addFromUrlLabel: 'URL ile ekle',
+    addFromUrlPlaceholder: 'https://raw.githubusercontent.com/.../liste.json',
+    addFromUrlButton: 'URL Ekle',
+    addingFromUrlStatus: 'Liste indiriliyor...',
+    advancedSectionTitle: 'Gelişmiş',
     pasteListLabel: 'Liste yükle (JSON)',
     pasteListPlaceholder: '{ "id": "ornek-liste", "name": "...", ... }',
     loadListButton: 'Listeyi Yükle',
@@ -39,6 +70,19 @@ const MESSAGES: Readonly<Record<Locale, Messages>> = {
     appTitle: 'Chamber',
     hiddenNotice: 'Hidden',
     showButton: 'Show',
+    installedListsHeading: 'Installed Lists',
+    noInstalledLists: 'No lists installed yet.',
+    listMetaSummary: ({ ruleCount, version, updatedAtText }) =>
+      `${ruleCount} rules · v${version} · Last updated: ${updatedAtText}`,
+    toggleListAriaLabel: (name) => `Toggle list ${name}`,
+    deleteListButton: 'Delete',
+    deleteListAriaLabel: (name) => `Delete list ${name}`,
+    listErrorLabel: (error) => `Error: ${error}`,
+    addFromUrlLabel: 'Add from URL',
+    addFromUrlPlaceholder: 'https://raw.githubusercontent.com/.../list.json',
+    addFromUrlButton: 'Add URL',
+    addingFromUrlStatus: 'Downloading list...',
+    advancedSectionTitle: 'Advanced',
     pasteListLabel: 'Load list (JSON)',
     pasteListPlaceholder: '{ "id": "example-list", "name": "...", ... }',
     loadListButton: 'Load List',
