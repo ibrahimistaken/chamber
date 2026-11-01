@@ -90,7 +90,7 @@
                   "properties": { "match": { "const": "prefix" } }
                 },
                 "then": {
-                  "properties": { "text": { "minLength": 4 } }
+                  "properties": { "text": { "type": "string", "minLength": 4 } }
                 }
               }
             ]

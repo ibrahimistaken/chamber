@@ -20,7 +20,7 @@ export interface ActiveRulesConfig {
   readonly mode: HideMode;
 }
 
-interface StorageAreaLike {
+export interface StorageAreaLike {
   get(keys: string): Promise<Record<string, unknown>>;
   set(items: Record<string, unknown>): Promise<void>;
 }
