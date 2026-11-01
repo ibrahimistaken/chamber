@@ -1,0 +1,43 @@
+{
+  "$schema": "../schema/list.schema.json",
+  "id": "influencer-drama-en",
+  "name": "Influencer Drama & Paparazzi Filter",
+  "description": "Filters celebrity feuds, influencer boxing matches, exposed videos, and tabloid clickbait.",
+  "author": "chamber",
+  "version": 1,
+  "tags": {
+    "country": "US",
+    "lang": "en",
+    "category": "eglence"
+  },
+  "mode": "collapse",
+  "rules": {
+    "keywords": [
+      "jake paul fight",
+      "jake paul boxing",
+      "logan paul fight",
+      "kardashian drama",
+      "keeping up with the kardashians",
+      "mrbeast drama",
+      "mrbeast lawsuit",
+      "exposed video apology",
+      "youtuber apology video",
+      "drama alert",
+      "influencer boxing match",
+      "misfits boxing",
+      "celebrity catfight",
+      "paparazzi footage",
+      "leaked dms drama",
+      "tea channel drama",
+      "clout chasing influencer"
+    ],
+    "exclude": [
+      "box office report",
+      "academy awards",
+      "emmy awards",
+      "cannes film festival",
+      "film festival review",
+      "variety review"
+    ]
+  }
+}

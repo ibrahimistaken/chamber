@@ -1,0 +1,44 @@
+{
+  "$schema": "../schema/list.schema.json",
+  "id": "culture-war-ragebait-en",
+  "name": "Culture War & Political Ragebait",
+  "description": "Hides hyper-partisan outrage posts, culture war buzzwords, and algorithmic division bait.",
+  "author": "chamber",
+  "version": 1,
+  "tags": {
+    "country": "US",
+    "lang": "en",
+    "category": "siyaset"
+  },
+  "mode": "collapse",
+  "rules": {
+    "keywords": [
+      "woke agenda",
+      "woke mind virus",
+      "libtard",
+      "maga cult",
+      "mainstream media won't show you",
+      "the media won't tell you this",
+      "destroying western civilization",
+      "trump derangement syndrome",
+      "clown world",
+      "wake up sheeple",
+      "pure evil politicians",
+      "culture war is real",
+      "virtue signaling at its finest",
+      "leftist meltdown",
+      "maga meltdown",
+      "outrage of the day",
+      "manufactured outrage",
+      "cancel culture gone too far"
+    ],
+    "exclude": [
+      "supreme court ruling",
+      "congressional hearing",
+      "ballot initiative",
+      "official election result",
+      "reuters report",
+      "associated press"
+    ]
+  }
+}

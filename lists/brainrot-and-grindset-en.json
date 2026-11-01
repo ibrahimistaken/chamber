@@ -1,0 +1,42 @@
+{
+  "$schema": "../schema/list.schema.json",
+  "id": "brainrot-and-grindset-en",
+  "name": "Brainrot Slang & Alpha Grindset Filter",
+  "description": "Filters overused internet brainrot slang, pseudo-alpha lifestyle advice, and looksmaxxing spam.",
+  "author": "chamber",
+  "version": 1,
+  "tags": {
+    "country": "US",
+    "lang": "en",
+    "category": "yasam"
+  },
+  "mode": "collapse",
+  "rules": {
+    "keywords": [
+      "alpha male grindset",
+      "sigma male rule",
+      "sigma grindset",
+      "high value man",
+      "high value female",
+      "looksmaxxing",
+      "mewing technique",
+      "it's over for bro",
+      "it is so over for bro",
+      "skibidi toilet",
+      "fanum tax",
+      "baby gronk",
+      "rizzler",
+      "negative canthal tilt",
+      "hunter eyes tutorial",
+      "sub 5 male",
+      "hypergamy is real",
+      "escape the matrix bro"
+    ],
+    "exclude": [
+      "sociology study",
+      "peer-reviewed article",
+      "linguistic analysis",
+      "psychology paper"
+    ]
+  }
+}

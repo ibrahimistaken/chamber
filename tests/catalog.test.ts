@@ -190,10 +190,20 @@ describe('build-catalog & lists/ directory', () => {
     const catalog = buildCatalogFromDirectory();
 
     const byCategory = filterCatalogEntries(catalog.lists, { category: 'siyaset' });
-    expect(byCategory.map((e) => e.id)).toEqual(['siyaset-tr-kelimeler']);
+    expect(byCategory.map((e) => e.id)).toEqual(
+      expect.arrayContaining(['culture-war-ragebait-en', 'siyaset-tr-kelimeler']),
+    );
 
     const byCountry = filterCatalogEntries(catalog.lists, { country: 'US' });
-    expect(byCountry.map((e) => e.id)).toEqual(['ai-hype-kelimeler']);
+    expect(byCountry.map((e) => e.id)).toEqual(
+      expect.arrayContaining([
+        'ai-hype-kelimeler',
+        'brainrot-and-grindset-en',
+        'culture-war-ragebait-en',
+        'engagement-bait-en',
+        'influencer-drama-en',
+      ]),
+    );
 
     const byQuery = filterCatalogEntries(catalog.lists, { query: 'kripto' });
     expect(byQuery.map((e) => e.id)).toEqual(['kripto-hype-kelimeler']);

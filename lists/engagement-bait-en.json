@@ -1,0 +1,55 @@
+{
+  "$schema": "../schema/list.schema.json",
+  "id": "engagement-bait-en",
+  "name": "Engagement Bait & Thread Bro Filter",
+  "description": "Filters template hustle threads, fake productivity advice, bookmark bait, and solopreneur engagement traps.",
+  "author": "chamber",
+  "version": 1,
+  "tags": {
+    "country": "US",
+    "lang": "en",
+    "category": "yasam"
+  },
+  "mode": "collapse",
+  "rules": {
+    "keywords": [
+      "bookmark this before it gets deleted",
+      "bookmark this thread",
+      "here's a thread",
+      "here is a thread",
+      "here's a 🧵",
+      "i spent 100 hours analyzing",
+      "i spent 50 hours researching",
+      "i spent 10 hours researching",
+      "99% of people don't know",
+      "99% of people won't read this",
+      "most people have no idea",
+      "steal my framework",
+      "steal my prompts",
+      "steal this prompt",
+      "how to make $10k/month",
+      "how i make $10k/month",
+      "how i made $100k",
+      "if you want to be in the top 1%",
+      "read this if you want to be rich",
+      "unpopular opinion: most people",
+      "hard pills to swallow in your 20s",
+      "harsh truths about life",
+      "rules for a disciplined life",
+      "comment 'send' and i will dm",
+      "comment 'guide' below",
+      "comment below and i'll send",
+      "retweet and i will send",
+      "reply 'yes' to get access",
+      "stop scrolling and read this",
+      "don't scroll without reading"
+    ],
+    "exclude": [
+      "peer-reviewed paper",
+      "academic research",
+      "scientific study",
+      "documentation",
+      "official announcement"
+    ]
+  }
+}

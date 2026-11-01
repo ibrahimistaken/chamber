@@ -16,6 +16,48 @@
       "path": "lists/ai-hype-kelimeler.json"
     },
     {
+      "id": "brainrot-and-grindset-en",
+      "name": "Brainrot Slang & Alpha Grindset Filter",
+      "description": "Filters overused internet brainrot slang, pseudo-alpha lifestyle advice, and looksmaxxing spam.",
+      "author": "chamber",
+      "version": 1,
+      "tags": {
+        "country": "US",
+        "lang": "en",
+        "category": "yasam"
+      },
+      "ruleCount": 22,
+      "path": "lists/brainrot-and-grindset-en.json"
+    },
+    {
+      "id": "culture-war-ragebait-en",
+      "name": "Culture War & Political Ragebait",
+      "description": "Hides hyper-partisan outrage posts, culture war buzzwords, and algorithmic division bait.",
+      "author": "chamber",
+      "version": 1,
+      "tags": {
+        "country": "US",
+        "lang": "en",
+        "category": "siyaset"
+      },
+      "ruleCount": 24,
+      "path": "lists/culture-war-ragebait-en.json"
+    },
+    {
+      "id": "engagement-bait-en",
+      "name": "Engagement Bait & Thread Bro Filter",
+      "description": "Filters template hustle threads, fake productivity advice, bookmark bait, and solopreneur engagement traps.",
+      "author": "chamber",
+      "version": 1,
+      "tags": {
+        "country": "US",
+        "lang": "en",
+        "category": "yasam"
+      },
+      "ruleCount": 35,
+      "path": "lists/engagement-bait-en.json"
+    },
+    {
       "id": "etkilesim-tuzagi-tr",
       "name": "Etkileşim Tuzağı ve Çekiliş Filtresi",
       "description": "Beğen-retweetle çekilişlerini, burç yorumu zincirlerini ve yapay gündem/etkileşim kasma kalıplarını gizler.",
@@ -42,6 +84,20 @@
       },
       "ruleCount": 10,
       "path": "lists/futbol-taraftar-polemik.json"
+    },
+    {
+      "id": "influencer-drama-en",
+      "name": "Influencer Drama & Paparazzi Filter",
+      "description": "Filters celebrity feuds, influencer boxing matches, exposed videos, and tabloid clickbait.",
+      "author": "chamber",
+      "version": 1,
+      "tags": {
+        "country": "US",
+        "lang": "en",
+        "category": "eglence"
+      },
+      "ruleCount": 23,
+      "path": "lists/influencer-drama-en.json"
     },
     {
       "id": "kripto-hype-kelimeler",
