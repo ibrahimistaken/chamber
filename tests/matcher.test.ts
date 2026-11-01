@@ -7,6 +7,7 @@ import {
   matchText,
   MIN_PREFIX_LENGTH,
   RuleValidationError,
+  stripExcludes,
   type ListRules,
 } from '../src/core/matcher';
 import exampleList from '../lists/ornek-liste.json';
@@ -275,26 +276,91 @@ describe('matchText', () => {
     expect(matchText('sezon fi\u200Bnali', rules).matched).toBe(true);
   });
 
-  it('evaluates exclude before keywords', () => {
-    const rules = compile({ keywords: ['spoiler'], exclude: ['spoiler yok'] });
-    expect(matchText('Bu yazıda SPOILER YOK, rahat okuyun', rules)).toEqual({
-      matched: false,
-      excludedBy: 'spoiler yok',
-    });
-    expect(matchText('Dikkat spoiler!', rules)).toEqual({
-      matched: true,
-      keyword: 'spoiler',
-    });
-  });
+  describe('exclude (removed from text before keyword search)', () => {
+    const taylor = compile({ keywords: ['taylor'], exclude: ['taylor series'] });
 
-  it('applies word boundaries to exclude phrases too', () => {
-    const rules = compile({ keywords: ['mac'], exclude: ['ali'] });
-    expect(matchText('kalite mac', rules)).toEqual({ matched: true, keyword: 'mac' });
-  });
+    it('does not match when the keyword only occurs inside an exclude phrase', () => {
+      expect(matchText('taylor series nedir', taylor)).toEqual({ matched: false });
+    });
 
-  it('excludes when exclude matches even if keyword is absent', () => {
-    const rules = compile({ keywords: ['spoiler'], exclude: ['reklam'] });
-    expect(matchText('reklam', rules)).toEqual({ matched: false, excludedBy: 'reklam' });
+    it('still matches a keyword occurring outside the exclude phrase', () => {
+      expect(matchText('taylor series ve taylor swift', taylor)).toEqual({
+        matched: true,
+        keyword: 'taylor',
+      });
+      expect(matchText('Taylor Swift ve Taylor Series', taylor).matched).toBe(true);
+    });
+
+    it('replaces the old "exclude wins" behavior', () => {
+      const rules = compile({ keywords: ['spoiler'], exclude: ['spoiler yok'] });
+      expect(matchText('Bu yazıda SPOILER YOK, rahat okuyun', rules)).toEqual({
+        matched: false,
+      });
+      expect(matchText('Dikkat spoiler!', rules).matched).toBe(true);
+      // Previously this was protected just because "spoiler yok" appeared.
+      expect(matchText('Spoiler yok dedi ama spoiler verdi', rules).matched).toBe(true);
+    });
+
+    it('removes every occurrence of the same exclude phrase', () => {
+      expect(matchText('taylor series, taylor series', taylor).matched).toBe(false);
+      expect(matchText('taylor series, taylor series ve taylor', taylor).matched).toBe(true);
+    });
+
+    it('supports multiple exclude phrases', () => {
+      const rules = compile({
+        keywords: ['taylor'],
+        exclude: ['taylor series', 'taylor polinomu'],
+      });
+      expect(matchText('taylor series ve taylor polinomu', rules).matched).toBe(false);
+      expect(matchText('taylor series, taylor polinomu, taylor swift', rules).matched).toBe(true);
+    });
+
+    it('removes the longer of nested exclude phrases first', () => {
+      // Listed short-first on purpose: removing "series" first would leave
+      // "taylor" behind and produce a false match.
+      const rules = compile({ keywords: ['taylor'], exclude: ['series', 'taylor series'] });
+      expect(rules.exclude).toEqual(['taylor series', 'series']);
+      expect(matchText('taylor series', rules).matched).toBe(false);
+    });
+
+    it('searches exclude phrases on word boundaries', () => {
+      // "tay" must not be cut out of "taylor".
+      const rules = compile({ keywords: ['taylor'], exclude: ['tay'] });
+      expect(matchText('taylor swift', rules).matched).toBe(true);
+      // "ali" must not be cut out of "kalite".
+      const kalite = compile({ keywords: ['kalite'], exclude: ['ali'] });
+      expect(matchText('kalite', kalite).matched).toBe(true);
+      expect(matchText('kalite mac', compile({ keywords: ['mac'], exclude: ['ali'] })).matched).toBe(
+        true,
+      );
+    });
+
+    it('does not fuse the neighbours of a removed phrase into a new word', () => {
+      // "+x+" has no word boundary requirement at its edges, so removing it
+      // with "" would turn "tay+x+lor" into "taylor".
+      const rules = compile({ keywords: ['taylor'], exclude: ['+x+'] });
+      expect(matchText('tay+x+lor', rules).matched).toBe(false);
+    });
+
+    it('does not join the neighbours into a keyword phrase', () => {
+      const rules = compile({ keywords: ['taylor swift'], exclude: ['series'] });
+      expect(matchText('taylor series swift', rules).matched).toBe(false);
+    });
+
+    it('works on normalized text (Turkish case, accents)', () => {
+      const rules = compile({ keywords: ['izmir'], exclude: ['İzmir derbisi'] });
+      expect(matchText('IZMIR DERBISI yarın', rules).matched).toBe(false);
+      expect(matchText('ızmır derbısı ve İzmir', rules).matched).toBe(true);
+    });
+
+    it('works together with prefix keywords', () => {
+      const rules = compile({
+        keywords: [{ text: 'siyasetçi', match: 'prefix' }],
+        exclude: ['siyasetçilik'],
+      });
+      expect(matchText('Siyasetçilik dersi', rules).matched).toBe(false);
+      expect(matchText('Siyasetçilik ve siyasetçiler', rules).matched).toBe(true);
+    });
   });
 
   it('returns no match for empty text or empty rules', () => {
@@ -317,7 +383,34 @@ describe('matchText', () => {
   });
 });
 
+describe('stripExcludes', () => {
+  it('replaces a removed phrase with a single space', () => {
+    expect(stripExcludes('a taylor series b', ['taylor series'])).toBe('a   b');
+  });
+
+  it('removes every occurrence, including at the edges', () => {
+    expect(stripExcludes('x a x', ['x'])).toBe('  a  ');
+  });
+
+  it('keeps a separator where the phrase had non-word edges', () => {
+    expect(stripExcludes('tay+x+lor', ['+x+'])).toBe('tay lor');
+  });
+
+  it('leaves text untouched when nothing matches on word boundaries', () => {
+    expect(stripExcludes('kalite', ['ali'])).toBe('kalite');
+    expect(stripExcludes('metin', [])).toBe('metin');
+  });
+});
+
 describe('matchAuthor', () => {
+  it('is not affected by exclude rules', () => {
+    const rules = compile({
+      accounts: [{ platform: 'x', handle: 'taylor' }],
+      exclude: ['taylor'],
+    });
+    expect(matchAuthor('x', 'taylor', rules)).toBe(true);
+  });
+
   const rules = compile({ accounts: [{ platform: 'x', handle: 'OrnekHesap' }] });
 
   it('matches handles case-insensitively and ignores a leading @', () => {

@@ -45,13 +45,13 @@ export interface CompiledRules {
   readonly accounts: ReadonlySet<string>;
   /** Normalized, deduplicated keywords. */
   readonly keywords: readonly CompiledKeyword[];
-  /** Normalized, deduplicated exclude phrases. */
+  /** Normalized, deduplicated exclude phrases, longest first. */
   readonly exclude: readonly string[];
 }
 
 export type TextMatchResult =
   | { readonly matched: true; readonly keyword: string }
-  | { readonly matched: false; readonly excludedBy?: string };
+  | { readonly matched: false };
 
 /**
  * Minimum length (in code points, after normalization) of the LAST word of a
@@ -155,8 +155,13 @@ export function compileRules(ruleSets: readonly ListRules[]): CompiledRules {
   return {
     accounts,
     keywords: uniqueKeywords(keywords),
-    exclude: uniqueNormalized(exclude),
+    exclude: sortLongestFirst(uniqueNormalized(exclude)),
   };
+}
+
+function sortLongestFirst(phrases: readonly string[]): string[] {
+  // Code point length; sort is stable so equal lengths keep list order.
+  return [...phrases].sort((a, b) => [...b].length - [...a].length);
 }
 
 /**
@@ -164,36 +169,65 @@ export function compileRules(ruleSets: readonly ListRules[]): CompiledRules {
  * when `requireEnd` is set, also ending at one. Both arguments must already
  * be normalized. A boundary is only required on a side where the needle
  * itself starts/ends with a letter or digit, so phrases like "c++" work.
+ * Returns the index of the first such occurrence at or after `from`, or -1.
  */
-function containsBounded(
+function indexOfBounded(
   haystack: string,
   needle: string,
   requireEnd: boolean,
-): boolean {
-  if (needle === '') return false;
+  from = 0,
+): number {
+  if (needle === '') return -1;
   const checkStart = isWordChar(needle[0]);
   const checkEnd = requireEnd && isWordChar(needle[needle.length - 1]);
 
-  let from = 0;
-  while (from <= haystack.length - needle.length) {
-    const idx = haystack.indexOf(needle, from);
-    if (idx === -1) return false;
+  let pos = from;
+  while (pos <= haystack.length - needle.length) {
+    const idx = haystack.indexOf(needle, pos);
+    if (idx === -1) return -1;
     const startOk = !checkStart || !isWordChar(haystack[idx - 1]);
     const endOk = !checkEnd || !isWordChar(haystack[idx + needle.length]);
-    if (startOk && endOk) return true;
-    from = idx + 1;
+    if (startOk && endOk) return idx;
+    pos = idx + 1;
   }
-  return false;
+  return -1;
 }
 
 /** Whole-word/phrase match. Arguments must already be normalized. */
 export function containsWord(haystack: string, needle: string): boolean {
-  return containsBounded(haystack, needle, true);
+  return indexOfBounded(haystack, needle, true) !== -1;
 }
 
 /** Word-start match ("siyasetci" in "siyasetcilerin"). Normalized input. */
 export function containsPrefix(haystack: string, needle: string): boolean {
-  return containsBounded(haystack, needle, false);
+  return indexOfBounded(haystack, needle, false) !== -1;
+}
+
+/** Replaces every whole-word occurrence of `phrase` with a single space. */
+function removePhrase(text: string, phrase: string): string {
+  let out = '';
+  let pos = 0;
+  let idx = indexOfBounded(text, phrase, true, pos);
+  while (idx !== -1) {
+    // A space (not "") keeps the neighbours apart: "a taylor series b"
+    // becomes "a   b", so they cannot fuse into a new word, and the run of
+    // spaces cannot match a normalized single-spaced phrase either.
+    out += text.slice(pos, idx) + ' ';
+    pos = idx + phrase.length;
+    idx = indexOfBounded(text, phrase, true, pos);
+  }
+  return out + text.slice(pos);
+}
+
+/**
+ * Removes all exclude phrases from normalized text. `exclude` must be sorted
+ * longest first (compileRules does this) so that a phrase containing another
+ * one is removed as a whole before the shorter one can split it.
+ */
+export function stripExcludes(normalized: string, exclude: readonly string[]): string {
+  let text = normalized;
+  for (const phrase of exclude) text = removePhrase(text, phrase);
+  return text;
 }
 
 function matchesKeyword(text: string, keyword: CompiledKeyword): boolean {
@@ -203,27 +237,28 @@ function matchesKeyword(text: string, keyword: CompiledKeyword): boolean {
 }
 
 /**
- * "Text contains" mode. Exclude phrases are checked first: if any of them
- * occurs, the text is never matched, regardless of keywords.
+ * "Text contains" mode. Exclude phrases are removed from the text first and
+ * keywords are searched in what remains, so an exclude only protects its own
+ * occurrence: with exclude "taylor series" and keyword "taylor",
+ * "taylor series nedir" is not matched but "taylor series ve taylor swift" is.
  */
 export function matchText(text: string, rules: CompiledRules): TextMatchResult {
   const normalized = normalize(text);
   if (normalized === '') return { matched: false };
 
-  for (const phrase of rules.exclude) {
-    if (containsWord(normalized, phrase)) {
-      return { matched: false, excludedBy: phrase };
-    }
-  }
+  const remaining = stripExcludes(normalized, rules.exclude);
   for (const keyword of rules.keywords) {
-    if (matchesKeyword(normalized, keyword)) {
+    if (matchesKeyword(remaining, keyword)) {
       return { matched: true, keyword: keyword.text };
     }
   }
   return { matched: false };
 }
 
-/** "Author handle" mode. Independent from keyword/exclude rules. */
+/**
+ * "Author handle" mode. Independent from keyword/exclude rules: exclude only
+ * applies to text mode.
+ */
 export function matchAuthor(
   platform: Platform,
   handle: string,
