@@ -144,15 +144,15 @@
     {
       "id": "profanity-filter",
       "name": "Küfür, Argo ve Hakaret Filtresi",
-      "description": "Türkçe ve İngilizce doğrudan küfürleri, yaygın kısaltmaları (oç, oe, amk, aq, stfu) ve argo hakaretleri filtreler.",
+      "description": "Doğrudan küfürleri, leetspeak ve harf oyunlarını (s*ktir, 0ç, a.m.k, f*ck), yaygın kısaltmaları ve argo hakaretleri filtreler.",
       "author": "chamber",
-      "version": 1,
+      "version": 2,
       "tags": {
         "country": "TR",
         "lang": "tr",
         "category": "guvenlik"
       },
-      "ruleCount": 115,
+      "ruleCount": 253,
       "path": "lists/profanity-filter.json"
     },
     {
