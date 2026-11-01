@@ -17,11 +17,13 @@ function getRuleCounts(rules: CompiledRules) {
   const accounts = rules.accounts.size;
   const keywords = rules.keywords.length;
   const exclude = rules.exclude.length;
+  const scoped = rules.scoped.length;
   return {
-    total: accounts + keywords + exclude,
+    total: accounts + keywords + exclude + scoped,
     accounts,
     keywords,
     exclude,
+    scoped,
   };
 }
 
@@ -29,7 +31,13 @@ export default function App({ locale = 'tr', storage }: AppProps) {
   const messages = getMessages(locale);
 
   const [jsonInput, setJsonInput] = useState('');
-  const [counts, setCounts] = useState({ total: 0, accounts: 0, keywords: 0, exclude: 0 });
+  const [counts, setCounts] = useState({
+    total: 0,
+    accounts: 0,
+    keywords: 0,
+    exclude: 0,
+    scoped: 0,
+  });
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
 

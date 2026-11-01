@@ -5,6 +5,49 @@
   "type": "object",
   "additionalProperties": false,
   "required": ["id", "name", "author", "version", "rules"],
+  "$defs": {
+    "platform": {
+      "type": "string",
+      "enum": ["x", "youtube", "reddit", "instagram", "tiktok"]
+    },
+    "handle": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 100,
+      "pattern": "^[^\\s]+$"
+    },
+    "keywordItem": {
+      "oneOf": [
+        { "type": "string", "minLength": 1, "maxLength": 200 },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["text"],
+          "properties": {
+            "text": { "type": "string", "minLength": 1, "maxLength": 200 },
+            "match": {
+              "type": "string",
+              "enum": ["word", "prefix"],
+              "default": "word"
+            }
+          },
+          "$comment": "Prefix keywords need a last word of >= 4 characters AFTER normalization; that rule lives in compileRules because normalization (invisible chars, combining marks, NFKD) changes word boundaries and \\p{L} in 'pattern' is not portable across validators. minLength 4 here is only a cheap lower bound that catches obvious cases like 'ali' early.",
+          "if": {
+            "required": ["match"],
+            "properties": { "match": { "const": "prefix" } }
+          },
+          "then": {
+            "properties": { "text": { "type": "string", "minLength": 4 } }
+          }
+        }
+      ]
+    },
+    "excludeArray": {
+      "type": "array",
+      "maxItems": 1000,
+      "items": { "type": "string", "minLength": 1, "maxLength": 200 }
+    }
+  },
   "properties": {
     "$schema": { "type": "string" },
     "id": {
@@ -53,56 +96,38 @@
             "additionalProperties": false,
             "required": ["platform", "handle"],
             "properties": {
-              "platform": {
-                "type": "string",
-                "enum": ["x", "youtube", "reddit", "instagram", "tiktok"]
-              },
-              "handle": {
-                "type": "string",
-                "minLength": 1,
-                "maxLength": 100,
-                "pattern": "^[^\\s]+$"
-              }
+              "platform": { "$ref": "#/$defs/platform" },
+              "handle": { "$ref": "#/$defs/handle" }
             }
           }
         },
         "keywords": {
           "type": "array",
           "maxItems": 5000,
-          "items": {
-            "oneOf": [
-              { "type": "string", "minLength": 1, "maxLength": 200 },
-              {
-                "type": "object",
-                "additionalProperties": false,
-                "required": ["text"],
-                "properties": {
-                  "text": { "type": "string", "minLength": 1, "maxLength": 200 },
-                  "match": {
-                    "type": "string",
-                    "enum": ["word", "prefix"],
-                    "default": "word"
-                  }
-                },
-                "$comment": "Prefix keywords need a last word of >= 4 characters AFTER normalization; that rule lives in compileRules because normalization (invisible chars, combining marks, NFKD) changes word boundaries and \\p{L} in 'pattern' is not portable across validators. minLength 4 here is only a cheap lower bound that catches obvious cases like 'ali' early.",
-                "if": {
-                  "required": ["match"],
-                  "properties": { "match": { "const": "prefix" } }
-                },
-                "then": {
-                  "properties": { "text": { "type": "string", "minLength": 4 } }
-                }
-              }
-            ]
-          }
+          "items": { "$ref": "#/$defs/keywordItem" }
         },
-        "exclude": {
+        "exclude": { "$ref": "#/$defs/excludeArray" },
+        "scoped": {
           "type": "array",
           "maxItems": 1000,
-          "items": { "type": "string", "minLength": 1, "maxLength": 200 }
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["platform", "handle", "keywords"],
+            "properties": {
+              "platform": { "$ref": "#/$defs/platform" },
+              "handle": { "$ref": "#/$defs/handle" },
+              "keywords": {
+                "type": "array",
+                "minItems": 1,
+                "maxItems": 5000,
+                "items": { "$ref": "#/$defs/keywordItem" }
+              },
+              "exclude": { "$ref": "#/$defs/excludeArray" }
+            }
+          }
         }
       }
     }
   }
 }
-

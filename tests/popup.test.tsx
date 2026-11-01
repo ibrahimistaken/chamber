@@ -59,7 +59,13 @@ describe('Popup App ("Liste yükle")', () => {
   it('shows initial active rule count from storage', async () => {
     const storage = createMemoryStorage();
     await setActiveRules(
-      [{ accounts: [{ platform: 'x', handle: 'hesap1' }], keywords: ['kelime1', 'kelime2'] }],
+      [
+        {
+          accounts: [{ platform: 'x', handle: 'hesap1' }],
+          keywords: ['kelime1', 'kelime2'],
+          scoped: [{ platform: 'x', handle: 'hesap2', keywords: ['konu'] }],
+        },
+      ],
       'collapse',
       storage,
     );
@@ -69,7 +75,9 @@ describe('Popup App ("Liste yükle")', () => {
     });
 
     const summary = container.querySelector('[data-testid="active-rules-count"]');
-    expect(summary?.textContent).toBe('Aktif kural: 3 (1 hesap, 2 kelime, 0 istisna)');
+    expect(summary?.textContent).toBe(
+      'Aktif kural: 4 (1 hesap, 2 kelime, 0 istisna, 1 hesaba bağlı kural)',
+    );
   });
 
   it('validates, compiles and saves a pasted list JSON and updates the rule count', async () => {
@@ -80,7 +88,7 @@ describe('Popup App ("Liste yükle")', () => {
     });
 
     expect(container.querySelector('[data-testid="active-rules-count"]')?.textContent).toBe(
-      'Aktif kural: 0 (0 hesap, 0 kelime, 0 istisna)',
+      'Aktif kural: 0 (0 hesap, 0 kelime, 0 istisna, 0 hesaba bağlı kural)',
     );
 
     await setTextareaAndSubmit(JSON.stringify(exampleList));
@@ -90,7 +98,7 @@ describe('Popup App ("Liste yükle")', () => {
       '"Örnek Liste" listesi yüklendi.',
     );
     expect(container.querySelector('[data-testid="active-rules-count"]')?.textContent).toBe(
-      'Aktif kural: 5 (1 hesap, 3 kelime, 1 istisna)',
+      'Aktif kural: 5 (1 hesap, 3 kelime, 1 istisna, 0 hesaba bağlı kural)',
     );
 
     const saved = await getActiveRules(storage);

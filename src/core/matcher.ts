@@ -27,17 +27,33 @@ export type KeywordRule =
   | string
   | { readonly text: string; readonly match?: MatchMode };
 
+/** Account-scoped keyword rule: only applies when the post's primary author matches `handle`. */
+export interface ScopedRule {
+  readonly platform: Platform;
+  readonly handle: string;
+  readonly keywords: readonly KeywordRule[];
+  readonly exclude?: readonly string[];
+}
+
 /** Mirrors `rules` in schema/list.schema.json. */
 export interface ListRules {
   readonly accounts?: readonly AccountRule[];
   readonly keywords?: readonly KeywordRule[];
   readonly exclude?: readonly string[];
+  readonly scoped?: readonly ScopedRule[];
 }
 
 export interface CompiledKeyword {
   /** Normalized keyword text. */
   readonly text: string;
   readonly match: MatchMode;
+}
+
+export interface CompiledScopedRule {
+  /** Key in the form `${platform}:${handle}`. */
+  readonly key: string;
+  readonly keywords: readonly CompiledKeyword[];
+  readonly exclude: readonly string[];
 }
 
 export interface CompiledRules {
@@ -47,6 +63,8 @@ export interface CompiledRules {
   readonly keywords: readonly CompiledKeyword[];
   /** Normalized, deduplicated exclude phrases, longest first. */
   readonly exclude: readonly string[];
+  /** Normalized, deduplicated account-scoped keyword rules. */
+  readonly scoped: readonly CompiledScopedRule[];
 }
 
 export type TextMatchResult =
@@ -132,6 +150,38 @@ function uniqueKeywords(rules: readonly KeywordRule[]): CompiledKeyword[] {
   return [...byText].map(([text, match]) => ({ text, match }));
 }
 
+function sortLongestFirst(phrases: readonly string[]): string[] {
+  // Code point length; sort is stable so equal lengths keep list order.
+  return [...phrases].sort((a, b) => [...b].length - [...a].length);
+}
+
+function compileScopedRules(rules: readonly ScopedRule[]): CompiledScopedRule[] {
+  const byKey = new Map<string, { keywords: KeywordRule[]; exclude: string[] }>();
+
+  for (const rule of rules) {
+    const key = accountKey(rule.platform, rule.handle);
+    let bucket = byKey.get(key);
+    if (!bucket) {
+      bucket = { keywords: [], exclude: [] };
+      byKey.set(key, bucket);
+    }
+    bucket.keywords.push(...rule.keywords);
+    bucket.exclude.push(...(rule.exclude ?? []));
+  }
+
+  const out: CompiledScopedRule[] = [];
+  for (const [key, bucket] of byKey) {
+    const compiledKeywords = uniqueKeywords(bucket.keywords);
+    if (compiledKeywords.length === 0) continue;
+    out.push({
+      key,
+      keywords: compiledKeywords,
+      exclude: sortLongestFirst(uniqueNormalized(bucket.exclude)),
+    });
+  }
+  return out;
+}
+
 /**
  * Compiles one or more rule sets into a single structure. Rules repeated
  * across lists are deduplicated so they are evaluated only once.
@@ -143,6 +193,7 @@ export function compileRules(ruleSets: readonly ListRules[]): CompiledRules {
   const accounts = new Set<string>();
   const keywords: KeywordRule[] = [];
   const exclude: string[] = [];
+  const scoped: ScopedRule[] = [];
 
   for (const rules of ruleSets) {
     for (const a of rules.accounts ?? []) {
@@ -150,18 +201,15 @@ export function compileRules(ruleSets: readonly ListRules[]): CompiledRules {
     }
     keywords.push(...(rules.keywords ?? []));
     exclude.push(...(rules.exclude ?? []));
+    scoped.push(...(rules.scoped ?? []));
   }
 
   return {
     accounts,
     keywords: uniqueKeywords(keywords),
     exclude: sortLongestFirst(uniqueNormalized(exclude)),
+    scoped: compileScopedRules(scoped),
   };
-}
-
-function sortLongestFirst(phrases: readonly string[]): string[] {
-  // Code point length; sort is stable so equal lengths keep list order.
-  return [...phrases].sort((a, b) => [...b].length - [...a].length);
 }
 
 /**
@@ -209,9 +257,6 @@ function removePhrase(text: string, phrase: string): string {
   let pos = 0;
   let idx = indexOfBounded(text, phrase, true, pos);
   while (idx !== -1) {
-    // A space (not "") keeps the neighbours apart: "a taylor series b"
-    // becomes "a   b", so they cannot fuse into a new word, and the run of
-    // spaces cannot match a normalized single-spaced phrase either.
     out += text.slice(pos, idx) + ' ';
     pos = idx + phrase.length;
     idx = indexOfBounded(text, phrase, true, pos);
@@ -236,6 +281,21 @@ function matchesKeyword(text: string, keyword: CompiledKeyword): boolean {
     : containsWord(text, keyword.text);
 }
 
+function matchAgainstKeywords(
+  normalizedText: string,
+  keywords: readonly CompiledKeyword[],
+  exclude: readonly string[],
+): TextMatchResult {
+  if (normalizedText === '') return { matched: false };
+  const remaining = stripExcludes(normalizedText, exclude);
+  for (const keyword of keywords) {
+    if (matchesKeyword(remaining, keyword)) {
+      return { matched: true, keyword: keyword.text };
+    }
+  }
+  return { matched: false };
+}
+
 /**
  * "Text contains" mode. Exclude phrases are removed from the text first and
  * keywords are searched in what remains, so an exclude only protects its own
@@ -243,16 +303,7 @@ function matchesKeyword(text: string, keyword: CompiledKeyword): boolean {
  * "taylor series nedir" is not matched but "taylor series ve taylor swift" is.
  */
 export function matchText(text: string, rules: CompiledRules): TextMatchResult {
-  const normalized = normalize(text);
-  if (normalized === '') return { matched: false };
-
-  const remaining = stripExcludes(normalized, rules.exclude);
-  for (const keyword of rules.keywords) {
-    if (matchesKeyword(remaining, keyword)) {
-      return { matched: true, keyword: keyword.text };
-    }
-  }
-  return { matched: false };
+  return matchAgainstKeywords(normalize(text), rules.keywords, rules.exclude);
 }
 
 /**
@@ -265,4 +316,24 @@ export function matchAuthor(
   rules: CompiledRules,
 ): boolean {
   return rules.accounts.has(accountKey(platform, handle));
+}
+
+/**
+ * "Account-scoped keyword" mode. Matches only when the post's primary author
+ * matches `platform` + `handle` (case-insensitive, leading "@" ignored) AND
+ * the text matches one of that scoped rule's keywords after stripping its
+ * exclude phrases.
+ */
+export function matchScoped(
+  platform: Platform,
+  handle: string,
+  text: string,
+  rules: CompiledRules,
+): TextMatchResult {
+  if (!rules.scoped || rules.scoped.length === 0) return { matched: false };
+  const targetKey = accountKey(platform, handle);
+  const scopedRule = rules.scoped.find((entry) => entry.key === targetKey);
+  if (!scopedRule) return { matched: false };
+
+  return matchAgainstKeywords(normalize(text), scopedRule.keywords, scopedRule.exclude);
 }

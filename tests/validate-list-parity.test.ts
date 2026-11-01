@@ -96,6 +96,14 @@ const CASES: readonly ParityCase[] = [
         accounts: [{ platform: 'x', handle: 'h'.repeat(100) }],
         keywords: ['k'.repeat(200), { text: 'p'.repeat(200), match: 'prefix' }],
         exclude: ['e'.repeat(200)],
+        scoped: [
+          {
+            platform: 'x',
+            handle: 'ornek_hesap',
+            keywords: ['spoiler', { text: 'siyasetçi', match: 'prefix' }],
+            exclude: ['spoiler yok'],
+          },
+        ],
       },
     },
   },
@@ -105,6 +113,16 @@ const CASES: readonly ParityCase[] = [
     input: {
       ...minimal,
       rules: { keywords: [{ text: 'İŞÇİ', match: 'prefix' }] },
+    },
+  },
+  {
+    label: 'valid: scoped rule without optional exclude',
+    expected: true,
+    input: {
+      ...minimal,
+      rules: {
+        scoped: [{ platform: 'youtube', handle: '@kanal', keywords: ['reklam'] }],
+      },
     },
   },
 
@@ -353,6 +371,72 @@ const CASES: readonly ParityCase[] = [
     input: {
       ...minimal,
       rules: { exclude: Array.from({ length: 1001 }, (_, i) => `e${i}`) },
+    },
+  },
+  {
+    label: 'invalid: scoped rule missing keywords',
+    expected: false,
+    input: {
+      ...minimal,
+      rules: { scoped: [{ platform: 'x', handle: 'ali' }] },
+    },
+  },
+  {
+    label: 'invalid: scoped rule with empty keywords array',
+    expected: false,
+    input: {
+      ...minimal,
+      rules: { scoped: [{ platform: 'x', handle: 'ali', keywords: [] }] },
+    },
+  },
+  {
+    label: 'invalid: scoped rule with unknown field',
+    expected: false,
+    input: {
+      ...minimal,
+      rules: {
+        scoped: [{ platform: 'x', handle: 'ali', keywords: ['test'], mode: 'blur' }],
+      },
+    },
+  },
+  {
+    label: 'invalid: scoped rule with short prefix keyword ("ali")',
+    expected: false,
+    input: {
+      ...minimal,
+      rules: {
+        scoped: [
+          {
+            platform: 'x',
+            handle: 'hesap',
+            keywords: [{ text: 'ali', match: 'prefix' }],
+          },
+        ],
+      },
+    },
+  },
+  {
+    label: 'invalid: scoped rule with whitespace in handle',
+    expected: false,
+    input: {
+      ...minimal,
+      rules: {
+        scoped: [{ platform: 'x', handle: 'bad handle', keywords: ['test'] }],
+      },
+    },
+  },
+  {
+    label: 'invalid: more than 1000 scoped rules',
+    expected: false,
+    input: {
+      ...minimal,
+      rules: {
+        scoped: Array.from({ length: 1001 }, (_, i) => ({
+          platform: 'x',
+          handle: `u${i}`,
+          keywords: ['k'],
+        })),
+      },
     },
   },
 ];

@@ -8,7 +8,7 @@ import {
   PROCESSED_ATTR,
   resetItem,
 } from './hider';
-import { matchAuthor, matchText, type CompiledRules } from './matcher';
+import { matchAuthor, matchScoped, matchText, type CompiledRules } from './matcher';
 
 export interface ObserverOptions {
   readonly adapter: Adapter;
@@ -71,8 +71,15 @@ export function processItem(
 
   const authorMatched = authors.some((handle) => matchAuthor(adapter.platform, handle, rules));
   const textMatched = !authorMatched && matchText(text, rules).matched;
+  const primaryAuthor = adapter.getAuthor(item);
+  const scopedMatched =
+    !authorMatched &&
+    !textMatched &&
+    primaryAuthor !== null &&
+    primaryAuthor !== '' &&
+    matchScoped(adapter.platform, primaryAuthor, text, rules).matched;
 
-  if (authorMatched || textMatched) {
+  if (authorMatched || textMatched || scopedMatched) {
     adapter.hide(item, mode);
     const state = isProcessed(item) ? 'hidden' : 'hidden';
     markProcessed(item, state, signature);

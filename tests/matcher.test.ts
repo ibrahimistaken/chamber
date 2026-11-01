@@ -4,6 +4,7 @@ import {
   containsPrefix,
   containsWord,
   matchAuthor,
+  matchScoped,
   matchText,
   MIN_PREFIX_LENGTH,
   RuleValidationError,
@@ -430,6 +431,91 @@ describe('matchAuthor', () => {
   it('is independent from keyword rules', () => {
     const kw = compile({ keywords: ['ornekhesap'] });
     expect(matchAuthor('x', 'ornekhesap', kw)).toBe(false);
+  });
+});
+
+describe('matchScoped', () => {
+  const rules = compile({
+    scoped: [
+      {
+        platform: 'x',
+        handle: '@OrnekHesap',
+        keywords: ['futbol', { text: 'siyasetçi', match: 'prefix' }, 'taylor'],
+        exclude: ['taylor series'],
+      },
+    ],
+  });
+
+  it('matches when both author handle and keyword match', () => {
+    expect(matchScoped('x', 'ornekhesap', 'Bugün futbol konuşalım', rules)).toEqual({
+      matched: true,
+      keyword: 'futbol',
+    });
+  });
+
+  it('does not match when author matches but keyword is absent', () => {
+    expect(matchScoped('x', 'ornekhesap', 'Bugün sinema konuşalım', rules)).toEqual({
+      matched: false,
+    });
+  });
+
+  it('does not match when keyword is present but author is different or on another platform', () => {
+    expect(matchScoped('x', 'baskahesap', 'Bugün futbol konuşalım', rules)).toEqual({
+      matched: false,
+    });
+    expect(matchScoped('youtube', 'ornekhesap', 'Bugün futbol konuşalım', rules)).toEqual({
+      matched: false,
+    });
+  });
+
+  it('is case-insensitive and ignores leading @ on the author handle', () => {
+    expect(matchScoped('x', '@ORNEKHESAP', 'futbol maçı', rules).matched).toBe(true);
+    expect(matchScoped('x', '  OrnekHesap ', 'futbol maçı', rules).matched).toBe(true);
+  });
+
+  it('supports prefix keywords inside scoped rules', () => {
+    expect(matchScoped('x', 'ornekhesap', 'Siyasetçilerin açıklaması', rules)).toEqual({
+      matched: true,
+      keyword: 'siyasetci',
+    });
+  });
+
+  it('strips scoped exclude phrases before checking scoped keywords', () => {
+    expect(matchScoped('x', 'ornekhesap', 'taylor series nedir', rules)).toEqual({
+      matched: false,
+    });
+    expect(
+      matchScoped('x', 'ornekhesap', 'taylor series ve taylor swift', rules),
+    ).toEqual({
+      matched: true,
+      keyword: 'taylor',
+    });
+  });
+
+  it('merges and deduplicates scoped rules for the same account across lists', () => {
+    const merged = compileRules([
+      { scoped: [{ platform: 'x', handle: 'Ornek', keywords: ['kripto'] }] },
+      { scoped: [{ platform: 'x', handle: '@ornek', keywords: ['KRİPTO', 'borsa'] }] },
+    ]);
+    expect(merged.scoped).toHaveLength(1);
+    expect(merged.scoped[0]?.keywords).toEqual([
+      { text: 'kripto', match: 'word' },
+      { text: 'borsa', match: 'word' },
+    ]);
+  });
+
+  it('enforces the last-word minimum length for prefix keywords in scoped rules', () => {
+    expect(() =>
+      compile({
+        scoped: [
+          {
+            platform: 'x',
+            handle: 'ornek',
+            keywords: [{ text: 'ab c', match: 'prefix' }],
+          },
+        ],
+      }),
+    ).toThrow(RuleValidationError);
   });
 });
 

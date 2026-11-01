@@ -13,6 +13,7 @@ import {
   type ListRules,
   type MatchMode,
   type Platform,
+  type ScopedRule,
 } from './matcher';
 
 export interface ValidatedList {
@@ -48,8 +49,9 @@ const ALLOWED_TOP_KEYS = new Set([
   'rules',
 ]);
 const ALLOWED_TAG_KEYS = new Set(['country', 'lang', 'category']);
-const ALLOWED_RULE_KEYS = new Set(['accounts', 'keywords', 'exclude']);
+const ALLOWED_RULE_KEYS = new Set(['accounts', 'keywords', 'exclude', 'scoped']);
 const ALLOWED_ACCOUNT_KEYS = new Set(['platform', 'handle']);
+const ALLOWED_SCOPED_KEYS = new Set(['platform', 'handle', 'keywords', 'exclude']);
 const ALLOWED_KEYWORD_KEYS = new Set(['text', 'match']);
 const ALLOWED_MODES = new Set<HideMode>(['collapse', 'remove', 'blur']);
 const ALLOWED_PLATFORMS = new Set<Platform>(['x', 'youtube', 'reddit', 'instagram', 'tiktok']);
@@ -78,13 +80,61 @@ function checkUnknownKeys(
 
 function validateStringLength(
   value: unknown,
-  path: string,
   min: number,
   max: number,
 ): value is string {
   if (typeof value !== 'string') return false;
   const len = codePointLength(value);
   return len >= min && len <= max;
+}
+
+function validateKeywordsArray(
+  value: unknown,
+  path: string,
+  minItems: number,
+): string | null {
+  if (!Array.isArray(value) || value.length < minItems || value.length > 5000) {
+    return `"${path}" must be an array of ${minItems}-5000 items.`;
+  }
+  for (let i = 0; i < value.length; i++) {
+    const kw = value[i];
+    if (typeof kw === 'string') {
+      if (!validateStringLength(kw, 1, 200)) {
+        return `"${path}[${i}]" must be 1-200 characters.`;
+      }
+      continue;
+    }
+    if (!isPlainObject(kw)) {
+      return `"${path}[${i}]" must be a string or { text, match? } object.`;
+    }
+    const unknownKw = checkUnknownKeys(kw, ALLOWED_KEYWORD_KEYS, `${path}[${i}]`);
+    if (unknownKw) return unknownKw;
+
+    if (!validateStringLength(kw.text, 1, 200)) {
+      return `"${path}[${i}].text" must be a string of 1-200 characters.`;
+    }
+    if ('match' in kw) {
+      if (typeof kw.match !== 'string' || !ALLOWED_MATCH_MODES.has(kw.match as MatchMode)) {
+        return `"${path}[${i}].match" must be "word" or "prefix".`;
+      }
+      if (kw.match === 'prefix' && codePointLength(kw.text) < MIN_PREFIX_LENGTH) {
+        return `"${path}[${i}].text" in prefix mode must be at least ${MIN_PREFIX_LENGTH} characters.`;
+      }
+    }
+  }
+  return null;
+}
+
+function validateExcludeArray(value: unknown, path: string): string | null {
+  if (!Array.isArray(value) || value.length > 1000) {
+    return `"${path}" must be an array of at most 1000 items.`;
+  }
+  for (let i = 0; i < value.length; i++) {
+    if (!validateStringLength(value[i], 1, 200)) {
+      return `"${path}[${i}]" must be a string of 1-200 characters.`;
+    }
+  }
+  return null;
 }
 
 export function validateListObject(input: unknown): ValidationResult {
@@ -105,25 +155,22 @@ export function validateListObject(input: unknown): ValidationResult {
     return { ok: false, error: '"$schema" must be a string.' };
   }
 
-  if (
-    !validateStringLength(input.id, 'id', 1, 64) ||
-    !ID_PATTERN.test(input.id)
-  ) {
+  if (!validateStringLength(input.id, 1, 64) || !ID_PATTERN.test(input.id)) {
     return {
       ok: false,
       error: '"id" must be 1-64 lowercase alphanumeric characters or hyphens (e.g. "ornek-liste").',
     };
   }
 
-  if (!validateStringLength(input.name, 'name', 1, 100)) {
+  if (!validateStringLength(input.name, 1, 100)) {
     return { ok: false, error: '"name" must be a non-empty string up to 100 characters.' };
   }
 
-  if ('description' in input && !validateStringLength(input.description, 'description', 0, 500)) {
+  if ('description' in input && !validateStringLength(input.description, 0, 500)) {
     return { ok: false, error: '"description" must be a string up to 500 characters.' };
   }
 
-  if (!validateStringLength(input.author, 'author', 1, 64)) {
+  if (!validateStringLength(input.author, 1, 64)) {
     return { ok: false, error: '"author" must be a non-empty string up to 64 characters.' };
   }
 
@@ -158,7 +205,7 @@ export function validateListObject(input: unknown): ValidationResult {
     }
     if (
       'category' in input.tags &&
-      !validateStringLength(input.tags.category, 'tags.category', 1, 40)
+      !validateStringLength(input.tags.category, 1, 40)
     ) {
       return { ok: false, error: '"tags.category" must be 1-40 characters.' };
     }
@@ -170,7 +217,7 @@ export function validateListObject(input: unknown): ValidationResult {
     }
     const seen = new Set<string>();
     for (const item of input.includes) {
-      if (!validateStringLength(item, 'includes[]', 1, 64) || !ID_PATTERN.test(item)) {
+      if (!validateStringLength(item, 1, 64) || !ID_PATTERN.test(item)) {
         return { ok: false, error: '"includes" entries must be valid list ids.' };
       }
       if (seen.has(item)) {
@@ -207,7 +254,7 @@ export function validateListObject(input: unknown): ValidationResult {
         };
       }
       if (
-        !validateStringLength(acc.handle, `rules.accounts[${i}].handle`, 1, 100) ||
+        !validateStringLength(acc.handle, 1, 100) ||
         !HANDLE_NO_WHITESPACE.test(acc.handle)
       ) {
         return {
@@ -219,59 +266,53 @@ export function validateListObject(input: unknown): ValidationResult {
   }
 
   if ('keywords' in rules) {
-    if (!Array.isArray(rules.keywords) || rules.keywords.length > 5000) {
-      return { ok: false, error: '"rules.keywords" must be an array of at most 5000 items.' };
-    }
-    for (let i = 0; i < rules.keywords.length; i++) {
-      const kw = rules.keywords[i];
-      if (typeof kw === 'string') {
-        if (!validateStringLength(kw, `rules.keywords[${i}]`, 1, 200)) {
-          return {
-            ok: false,
-            error: `"rules.keywords[${i}]" must be 1-200 characters.`,
-          };
-        }
-        continue;
-      }
-      if (!isPlainObject(kw)) {
-        return {
-          ok: false,
-          error: `"rules.keywords[${i}]" must be a string or { text, match? } object.`,
-        };
-      }
-      const unknownKw = checkUnknownKeys(kw, ALLOWED_KEYWORD_KEYS, `rules.keywords[${i}]`);
-      if (unknownKw) return { ok: false, error: unknownKw };
-
-      if (!validateStringLength(kw.text, `rules.keywords[${i}].text`, 1, 200)) {
-        return {
-          ok: false,
-          error: `"rules.keywords[${i}].text" must be a string of 1-200 characters.`,
-        };
-      }
-      if ('match' in kw) {
-        if (typeof kw.match !== 'string' || !ALLOWED_MATCH_MODES.has(kw.match as MatchMode)) {
-          return {
-            ok: false,
-            error: `"rules.keywords[${i}].match" must be "word" or "prefix".`,
-          };
-        }
-        if (kw.match === 'prefix' && codePointLength(kw.text) < MIN_PREFIX_LENGTH) {
-          return {
-            ok: false,
-            error: `"rules.keywords[${i}].text" in prefix mode must be at least ${MIN_PREFIX_LENGTH} characters.`,
-          };
-        }
-      }
-    }
+    const kwErr = validateKeywordsArray(rules.keywords, 'rules.keywords', 0);
+    if (kwErr) return { ok: false, error: kwErr };
   }
 
   if ('exclude' in rules) {
-    if (!Array.isArray(rules.exclude) || rules.exclude.length > 1000) {
-      return { ok: false, error: '"rules.exclude" must be an array of at most 1000 items.' };
+    const exErr = validateExcludeArray(rules.exclude, 'rules.exclude');
+    if (exErr) return { ok: false, error: exErr };
+  }
+
+  if ('scoped' in rules) {
+    if (!Array.isArray(rules.scoped) || rules.scoped.length > 1000) {
+      return { ok: false, error: '"rules.scoped" must be an array of at most 1000 items.' };
     }
-    for (let i = 0; i < rules.exclude.length; i++) {
-      if (!validateStringLength(rules.exclude[i], `rules.exclude[${i}]`, 1, 200)) {
-        return { ok: false, error: `"rules.exclude[${i}]" must be a string of 1-200 characters.` };
+    for (let i = 0; i < rules.scoped.length; i++) {
+      const item = rules.scoped[i];
+      if (!isPlainObject(item)) {
+        return { ok: false, error: `"rules.scoped[${i}]" must be an object.` };
+      }
+      for (const req of ['platform', 'handle', 'keywords'] as const) {
+        if (!(req in item)) {
+          return { ok: false, error: `"rules.scoped[${i}]" is missing required field "${req}".` };
+        }
+      }
+      const unknownScoped = checkUnknownKeys(item, ALLOWED_SCOPED_KEYS, `rules.scoped[${i}]`);
+      if (unknownScoped) return { ok: false, error: unknownScoped };
+
+      if (typeof item.platform !== 'string' || !ALLOWED_PLATFORMS.has(item.platform as Platform)) {
+        return {
+          ok: false,
+          error: `"rules.scoped[${i}].platform" must be one of x, youtube, reddit, instagram, tiktok.`,
+        };
+      }
+      if (
+        !validateStringLength(item.handle, 1, 100) ||
+        !HANDLE_NO_WHITESPACE.test(item.handle)
+      ) {
+        return {
+          ok: false,
+          error: `"rules.scoped[${i}].handle" must be 1-100 non-whitespace characters.`,
+        };
+      }
+      const kwErr = validateKeywordsArray(item.keywords, `rules.scoped[${i}].keywords`, 1);
+      if (kwErr) return { ok: false, error: kwErr };
+
+      if ('exclude' in item) {
+        const exErr = validateExcludeArray(item.exclude, `rules.scoped[${i}].exclude`);
+        if (exErr) return { ok: false, error: exErr };
       }
     }
   }
@@ -280,6 +321,7 @@ export function validateListObject(input: unknown): ValidationResult {
     accounts: rules.accounts as readonly AccountRule[] | undefined,
     keywords: rules.keywords as readonly KeywordRule[] | undefined,
     exclude: rules.exclude as readonly string[] | undefined,
+    scoped: rules.scoped as readonly ScopedRule[] | undefined,
   };
 
   return {
@@ -296,4 +338,3 @@ export function validateListObject(input: unknown): ValidationResult {
     },
   };
 }
-

@@ -3,6 +3,7 @@ import {
   compileRules,
   type CompiledKeyword,
   type CompiledRules,
+  type CompiledScopedRule,
   type ListRules,
 } from '../core/matcher';
 
@@ -12,6 +13,7 @@ export interface StoredActiveRules {
   readonly accounts: readonly string[];
   readonly keywords: readonly CompiledKeyword[];
   readonly exclude: readonly string[];
+  readonly scoped?: readonly CompiledScopedRule[];
   readonly mode: HideMode;
 }
 
@@ -40,6 +42,7 @@ function isStoredActiveRules(value: unknown): value is StoredActiveRules {
     Array.isArray(obj.accounts) &&
     Array.isArray(obj.keywords) &&
     Array.isArray(obj.exclude) &&
+    (obj.scoped === undefined || Array.isArray(obj.scoped)) &&
     (obj.mode === 'collapse' || obj.mode === 'remove' || obj.mode === 'blur')
   );
 }
@@ -65,6 +68,7 @@ export async function getActiveRules(storage?: StorageAreaLike): Promise<ActiveR
       accounts: new Set(stored.accounts),
       keywords: stored.keywords,
       exclude: stored.exclude,
+      scoped: stored.scoped ?? [],
     },
     mode: stored.mode,
   };
@@ -85,6 +89,7 @@ export async function setActiveRules(
     accounts: [...compiled.accounts],
     keywords: compiled.keywords,
     exclude: compiled.exclude,
+    scoped: compiled.scoped,
     mode,
   };
 

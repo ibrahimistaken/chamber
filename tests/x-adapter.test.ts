@@ -139,5 +139,57 @@ describe('xAdapter', () => {
       expect(processItem(item, xAdapter, byQuotedKeyword, 'collapse')).toBe(true);
       expect(getProcessedState(item)).toBe('hidden');
     });
+
+    it('applies scoped rules only to primary getAuthor, not secondary repost/quote authors', () => {
+      // Primary author of quote.html is ornek_hesap_3; quoted author is ornek_hesap_5.
+      const rootMatch = loadFixture('quote.html');
+      const itemMatch = xAdapter.getItems(rootMatch)[0]!;
+      const scopedPrimary = compileRules([
+        {
+          scoped: [
+            { platform: 'x', handle: '@ORNEK_HESAP_3', keywords: ['duyuru'] },
+          ],
+        },
+      ]);
+      expect(processItem(itemMatch, xAdapter, scopedPrimary, 'collapse')).toBe(true);
+      expect(getProcessedState(itemMatch)).toBe('hidden');
+
+      // When the primary author matches but the keyword is absent -> not hidden.
+      const rootNoKeyword = loadFixture('quote.html');
+      const itemNoKeyword = xAdapter.getItems(rootNoKeyword)[0]!;
+      const scopedNoKeyword = compileRules([
+        {
+          scoped: [
+            { platform: 'x', handle: 'ornek_hesap_3', keywords: ['olmayan_kelime'] },
+          ],
+        },
+      ]);
+      expect(processItem(itemNoKeyword, xAdapter, scopedNoKeyword, 'collapse')).toBe(false);
+      expect(getProcessedState(itemNoKeyword)).toBe('checked');
+
+      // Scoped rule targeting the quoted author (ornek_hesap_5) or reposter (ornek_hesap_4)
+      // must NOT trigger because scoped uses getAuthor, not getAuthors.
+      const rootQuoted = loadFixture('quote.html');
+      const itemQuoted = xAdapter.getItems(rootQuoted)[0]!;
+      const scopedSecondary = compileRules([
+        {
+          scoped: [
+            { platform: 'x', handle: 'ornek_hesap_5', keywords: ['konferans'] },
+          ],
+        },
+      ]);
+      expect(processItem(itemQuoted, xAdapter, scopedSecondary, 'collapse')).toBe(false);
+
+      const rootRepost = loadFixture('repost.html');
+      const itemRepost = xAdapter.getItems(rootRepost)[0]!;
+      const scopedReposter = compileRules([
+        {
+          scoped: [
+            { platform: 'x', handle: 'ornek_hesap_4', keywords: ['kitaplar'] },
+          ],
+        },
+      ]);
+      expect(processItem(itemRepost, xAdapter, scopedReposter, 'collapse')).toBe(false);
+    });
   });
 });
