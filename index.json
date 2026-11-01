@@ -74,15 +74,15 @@
     {
       "id": "futbol-taraftar-polemik",
       "name": "Futbol Hakem ve Transfer Polemikleri",
-      "description": "Maç sonu hakem tartışmalarını, VAR polemiklerini ve doğrulanmamış transfer duyumu paylaşımlarını filtreler.",
+      "description": "Hakem kavgaları, VAR tartışmaları, sahte transfer nöbetleri, holigan sataşmaları ve 'futbol tayfa' toksikliğini filtreler.",
       "author": "chamber",
-      "version": 1,
+      "version": 2,
       "tags": {
         "country": "TR",
         "lang": "tr",
         "category": "spor"
       },
-      "ruleCount": 10,
+      "ruleCount": 81,
       "path": "lists/futbol-taraftar-polemik.json"
     },
     {
