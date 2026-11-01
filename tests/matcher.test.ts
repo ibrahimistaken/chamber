@@ -140,9 +140,32 @@ describe('compileRules', () => {
     it('rejects "ali" in prefix mode with a clear error', () => {
       expect(() => prefix('ali')).toThrow(RuleValidationError);
       expect(() => prefix('ali')).toThrow(
-        'Prefix keyword "ali" is too short: it must be at least 4 characters ' +
-          'after normalization ("ali" has 3). Use match "word" instead.',
+        'Prefix keyword "ali" is too short: its last word must be at least 4 ' +
+          'characters after normalization ("ali" has 3). Use match "word" instead.',
       );
+    });
+
+    it('applies the limit to the last word, not the total length', () => {
+      expect(() => prefix('ab c')).toThrow(
+        'Prefix keyword "ab c" is too short: its last word must be at least 4 ' +
+          'characters after normalization ("c" has 1). Use match "word" instead.',
+      );
+      expect(prefix('ab siyas').keywords).toEqual([{ text: 'ab siyas', match: 'prefix' }]);
+      expect(prefix('siyasetçi').keywords).toEqual([{ text: 'siyasetci', match: 'prefix' }]);
+    });
+
+    it('splits words on punctuation like the matcher does', () => {
+      expect(() => prefix('ab-c')).toThrow('("c" has 1)');
+      expect(() => prefix("siyaset'çi")).toThrow('("ci" has 2)');
+    });
+
+    it('ignores trailing punctuation when finding the last word', () => {
+      expect(prefix('siyas.').keywords).toEqual([{ text: 'siyas.', match: 'prefix' }]);
+      expect(() => prefix('ab c!')).toThrow('("c" has 1)');
+    });
+
+    it('rejects a prefix keyword without any letters or digits', () => {
+      expect(() => prefix('++++')).toThrow('("" has 0)');
     });
 
     it('accepts "siyas" and exactly 4 characters', () => {

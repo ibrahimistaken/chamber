@@ -84,7 +84,7 @@
                     "default": "word"
                   }
                 },
-                "$comment": "Short prefixes match far too much. Schema can only check raw length; compileRules re-checks after normalization.",
+                "$comment": "Prefix keywords need a last word of >= 4 characters AFTER normalization; that rule lives in compileRules because normalization (invisible chars, combining marks, NFKD) changes word boundaries and \\p{L} in 'pattern' is not portable across validators. minLength 4 here is only a cheap lower bound that catches obvious cases like 'ali' early.",
                 "if": {
                   "required": ["match"],
                   "properties": { "match": { "const": "prefix" } }

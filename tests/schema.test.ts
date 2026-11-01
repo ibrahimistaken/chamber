@@ -107,6 +107,11 @@ describe('list.schema.json', () => {
       expect(validate(withKeywords([{ text: 'İŞÇİ', match: 'prefix' }]))).toBe(true);
     });
 
+    it('only checks total length; the last-word rule is left to compileRules', () => {
+      // Documents the layering: "ab c" passes the schema but compileRules rejects it.
+      expect(validate(withKeywords([{ text: 'ab c', match: 'prefix' }]))).toBe(true);
+    });
+
     it('does not limit word-mode keywords', () => {
       expect(validate(withKeywords(['ali', { text: 'ali' }, { text: 'ab', match: 'word' }]))).toBe(
         true,

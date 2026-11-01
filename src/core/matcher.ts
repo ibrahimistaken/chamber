@@ -54,8 +54,10 @@ export type TextMatchResult =
   | { readonly matched: false; readonly excludedBy?: string };
 
 /**
- * Minimum length (in code points, after normalization) of a prefix keyword.
- * Shorter prefixes like "ali" would hide "alis", "alinin", "alisveris"...
+ * Minimum length (in code points, after normalization) of the LAST word of a
+ * prefix keyword. Only the last word is open-ended, so "ab c" would hide
+ * every "ab c..." text; shorter prefixes like "ali" would hide "alinin",
+ * "alisveris"...
  */
 export const MIN_PREFIX_LENGTH = 4;
 
@@ -86,15 +88,30 @@ function uniqueNormalized(values: readonly string[]): string[] {
   return [...out];
 }
 
+/**
+ * Last run of letters/digits in normalized text. Words are split on the
+ * same boundary the matcher uses, so "ab-c" ends in "c": a prefix rule only
+ * relaxes the end of the keyword, and that final run is what can expand.
+ */
+function lastWord(normalized: string): string {
+  const chars = [...normalized];
+  let end = chars.length;
+  while (end > 0 && !isWordChar(chars[end - 1])) end--;
+  let start = end;
+  while (start > 0 && isWordChar(chars[start - 1])) start--;
+  return chars.slice(start, end).join('');
+}
+
 function assertPrefixLength(raw: string, normalized: string): void {
+  const word = lastWord(normalized);
   // Code points, not UTF-16 units, so the limit matches JSON Schema's
   // minLength semantics.
-  const length = [...normalized].length;
+  const length = [...word].length;
   if (length < MIN_PREFIX_LENGTH) {
     throw new RuleValidationError(
-      `Prefix keyword "${raw}" is too short: it must be at least ` +
+      `Prefix keyword "${raw}" is too short: its last word must be at least ` +
         `${MIN_PREFIX_LENGTH} characters after normalization ` +
-        `("${normalized}" has ${length}). Use match "word" instead.`,
+        `("${word}" has ${length}). Use match "word" instead.`,
     );
   }
 }
@@ -119,8 +136,8 @@ function uniqueKeywords(rules: readonly KeywordRule[]): CompiledKeyword[] {
  * Compiles one or more rule sets into a single structure. Rules repeated
  * across lists are deduplicated so they are evaluated only once.
  *
- * @throws {RuleValidationError} if a prefix keyword is shorter than
- *   MIN_PREFIX_LENGTH after normalization.
+ * @throws {RuleValidationError} if the last word of a prefix keyword is
+ *   shorter than MIN_PREFIX_LENGTH after normalization.
  */
 export function compileRules(ruleSets: readonly ListRules[]): CompiledRules {
   const accounts = new Set<string>();
