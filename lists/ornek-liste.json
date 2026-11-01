@@ -1,0 +1,16 @@
+{
+  "$schema": "../schema/list.schema.json",
+  "id": "ornek-liste",
+  "name": "Örnek Liste",
+  "description": "Spoiler istemeyenler için şema ve eşleştirme davranışını gösteren küçük bir örnek liste.",
+  "author": "chamber",
+  "version": 1,
+  "tags": { "country": "TR", "lang": "tr", "category": "spoiler" },
+  "mode": "collapse",
+  "rules": {
+    "accounts": [{ "platform": "x", "handle": "ornekhesap" }],
+    "keywords": ["sezon finali", "spoiler", "İzmir derbisi"],
+    "exclude": ["spoiler yok"]
+  }
+}
+

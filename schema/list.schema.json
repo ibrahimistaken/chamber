@@ -1,0 +1,83 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/chamber/chamber/schema/list.schema.json",
+  "title": "Chamber filter list (v1)",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["id", "name", "author", "version", "rules"],
+  "properties": {
+    "$schema": { "type": "string" },
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+      "minLength": 1,
+      "maxLength": 64
+    },
+    "name": { "type": "string", "minLength": 1, "maxLength": 100 },
+    "description": { "type": "string", "maxLength": 500 },
+    "author": { "type": "string", "minLength": 1, "maxLength": 64 },
+    "version": { "type": "integer", "minimum": 1 },
+    "tags": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "country": { "type": "string", "pattern": "^[A-Z]{2}$" },
+        "lang": { "type": "string", "pattern": "^[a-z]{2}$" },
+        "category": { "type": "string", "minLength": 1, "maxLength": 40 }
+      }
+    },
+    "mode": {
+      "type": "string",
+      "enum": ["collapse", "remove", "blur"],
+      "default": "collapse"
+    },
+    "includes": {
+      "type": "array",
+      "maxItems": 20,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+        "maxLength": 64
+      }
+    },
+    "rules": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "accounts": {
+          "type": "array",
+          "maxItems": 5000,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["platform", "handle"],
+            "properties": {
+              "platform": {
+                "type": "string",
+                "enum": ["x", "youtube", "reddit", "instagram", "tiktok"]
+              },
+              "handle": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 100,
+                "pattern": "^[^\\s]+$"
+              }
+            }
+          }
+        },
+        "keywords": {
+          "type": "array",
+          "maxItems": 5000,
+          "items": { "type": "string", "minLength": 1, "maxLength": 200 }
+        },
+        "exclude": {
+          "type": "array",
+          "maxItems": 1000,
+          "items": { "type": "string", "minLength": 1, "maxLength": 200 }
+        }
+      }
+    }
+  }
+}
+
