@@ -67,4 +67,31 @@ describe('list.schema.json', () => {
     const rules = { accounts: [{ platform: 'myspace', handle: 'a' }] };
     expect(validate({ ...minimal, rules })).toBe(false);
   });
+
+  describe('keyword match types', () => {
+    const withKeywords = (keywords: unknown[]) => ({ ...minimal, rules: { keywords } });
+
+    it('accepts plain strings and objects with word/prefix match', () => {
+      const list = withKeywords([
+        'spoiler',
+        { text: 'siyasetçi', match: 'prefix' },
+        { text: 'ali', match: 'word' },
+        { text: 'derbi' },
+      ]);
+      expect(validate(list)).toBe(true);
+    });
+
+    it('rejects unknown match type', () => {
+      expect(validate(withKeywords([{ text: 'a', match: 'regex' }]))).toBe(false);
+    });
+
+    it('rejects keyword object without text or with empty text', () => {
+      expect(validate(withKeywords([{ match: 'prefix' }]))).toBe(false);
+      expect(validate(withKeywords([{ text: '', match: 'prefix' }]))).toBe(false);
+    });
+
+    it('rejects unknown fields in keyword object', () => {
+      expect(validate(withKeywords([{ text: 'a', flags: 'i' }]))).toBe(false);
+    });
+  });
 });

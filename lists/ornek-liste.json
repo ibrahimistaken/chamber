@@ -9,7 +9,11 @@
   "mode": "collapse",
   "rules": {
     "accounts": [{ "platform": "x", "handle": "ornekhesap" }],
-    "keywords": ["sezon finali", "spoiler", "İzmir derbisi"],
+    "keywords": [
+      { "text": "sezon finali", "match": "prefix" },
+      "spoiler",
+      "İzmir derbisi"
+    ],
     "exclude": ["spoiler yok"]
   }
 }

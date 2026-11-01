@@ -14,18 +14,37 @@ export interface AccountRule {
   readonly handle: string;
 }
 
+/**
+ * "word": the keyword must be a whole word/phrase.
+ * "prefix": the keyword must start a word but may be followed by more
+ * letters; needed for agglutinative languages like Turkish
+ * ("siyasetçi" -> "siyasetçilerin").
+ */
+export type MatchMode = 'word' | 'prefix';
+
+/** A bare string is shorthand for `{ text, match: 'word' }`. */
+export type KeywordRule =
+  | string
+  | { readonly text: string; readonly match?: MatchMode };
+
 /** Mirrors `rules` in schema/list.schema.json. */
 export interface ListRules {
   readonly accounts?: readonly AccountRule[];
-  readonly keywords?: readonly string[];
+  readonly keywords?: readonly KeywordRule[];
   readonly exclude?: readonly string[];
+}
+
+export interface CompiledKeyword {
+  /** Normalized keyword text. */
+  readonly text: string;
+  readonly match: MatchMode;
 }
 
 export interface CompiledRules {
   /** Keys in the form `${platform}:${handle}`. */
   readonly accounts: ReadonlySet<string>;
   /** Normalized, deduplicated keywords. */
-  readonly keywords: readonly string[];
+  readonly keywords: readonly CompiledKeyword[];
   /** Normalized, deduplicated exclude phrases. */
   readonly exclude: readonly string[];
 }
@@ -46,14 +65,29 @@ function accountKey(platform: Platform, handle: string): string {
   return `${platform}:${handle.trim().replace(/^@/, '').toLowerCase()}`;
 }
 
-function uniqueNormalized(values: readonly string[] | undefined): string[] {
+function uniqueNormalized(values: readonly string[]): string[] {
   const out = new Set<string>();
-  for (const value of values ?? []) {
+  for (const value of values) {
     const n = normalize(value);
     // A rule that normalizes to "" would match everything.
     if (n !== '') out.add(n);
   }
   return [...out];
+}
+
+function uniqueKeywords(rules: readonly KeywordRule[]): CompiledKeyword[] {
+  const byText = new Map<string, MatchMode>();
+  for (const rule of rules) {
+    const raw = typeof rule === 'string' ? rule : rule.text;
+    const match = typeof rule === 'string' ? 'word' : (rule.match ?? 'word');
+    const text = normalize(raw);
+    // A rule that normalizes to "" would match everything.
+    if (text === '') continue;
+    // A prefix rule already matches everything the word rule would, so
+    // keeping only the prefix avoids evaluating the same text twice.
+    if (byText.get(text) !== 'prefix') byText.set(text, match);
+  }
+  return [...byText].map(([text, match]) => ({ text, match }));
 }
 
 /**
@@ -62,7 +96,7 @@ function uniqueNormalized(values: readonly string[] | undefined): string[] {
  */
 export function compileRules(ruleSets: readonly ListRules[]): CompiledRules {
   const accounts = new Set<string>();
-  const keywords: string[] = [];
+  const keywords: KeywordRule[] = [];
   const exclude: string[] = [];
 
   for (const rules of ruleSets) {
@@ -75,21 +109,25 @@ export function compileRules(ruleSets: readonly ListRules[]): CompiledRules {
 
   return {
     accounts,
-    keywords: uniqueNormalized(keywords),
+    keywords: uniqueKeywords(keywords),
     exclude: uniqueNormalized(exclude),
   };
 }
 
 /**
- * True if `needle` occurs in `haystack` on word boundaries. Both arguments
- * must already be normalized. A boundary is only required on a side where
- * the needle itself starts/ends with a letter or digit, so phrases like
- * "c++" still work.
+ * True if `needle` occurs in `haystack` starting at a word boundary and,
+ * when `requireEnd` is set, also ending at one. Both arguments must already
+ * be normalized. A boundary is only required on a side where the needle
+ * itself starts/ends with a letter or digit, so phrases like "c++" work.
  */
-export function containsWord(haystack: string, needle: string): boolean {
+function containsBounded(
+  haystack: string,
+  needle: string,
+  requireEnd: boolean,
+): boolean {
   if (needle === '') return false;
   const checkStart = isWordChar(needle[0]);
-  const checkEnd = isWordChar(needle[needle.length - 1]);
+  const checkEnd = requireEnd && isWordChar(needle[needle.length - 1]);
 
   let from = 0;
   while (from <= haystack.length - needle.length) {
@@ -101,6 +139,22 @@ export function containsWord(haystack: string, needle: string): boolean {
     from = idx + 1;
   }
   return false;
+}
+
+/** Whole-word/phrase match. Arguments must already be normalized. */
+export function containsWord(haystack: string, needle: string): boolean {
+  return containsBounded(haystack, needle, true);
+}
+
+/** Word-start match ("siyasetci" in "siyasetcilerin"). Normalized input. */
+export function containsPrefix(haystack: string, needle: string): boolean {
+  return containsBounded(haystack, needle, false);
+}
+
+function matchesKeyword(text: string, keyword: CompiledKeyword): boolean {
+  return keyword.match === 'prefix'
+    ? containsPrefix(text, keyword.text)
+    : containsWord(text, keyword.text);
 }
 
 /**
@@ -117,8 +171,8 @@ export function matchText(text: string, rules: CompiledRules): TextMatchResult {
     }
   }
   for (const keyword of rules.keywords) {
-    if (containsWord(normalized, keyword)) {
-      return { matched: true, keyword };
+    if (matchesKeyword(normalized, keyword)) {
+      return { matched: true, keyword: keyword.text };
     }
   }
   return { matched: false };
@@ -132,4 +186,3 @@ export function matchAuthor(
 ): boolean {
   return rules.accounts.has(accountKey(platform, handle));
 }
-

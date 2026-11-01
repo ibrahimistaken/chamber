@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   compileRules,
+  containsPrefix,
   containsWord,
   matchAuthor,
   matchText,
@@ -62,13 +63,69 @@ describe('containsWord', () => {
   });
 });
 
+describe('containsPrefix', () => {
+  it('matches at the start of a longer word', () => {
+    expect(containsPrefix('siyasetcilerin', 'siyasetci')).toBe(true);
+    expect(containsPrefix('siyasetciler', 'siyasetci')).toBe(true);
+  });
+
+  it('still matches the exact word', () => {
+    expect(containsPrefix('siyasetci', 'siyasetci')).toBe(true);
+  });
+
+  it('does not match in the middle or end of a word', () => {
+    expect(containsPrefix('kalite', 'ali')).toBe(false);
+    expect(containsPrefix('vali', 'ali')).toBe(false);
+  });
+
+  it('finds a later word-start occurrence', () => {
+    expect(containsPrefix('kalite alinin', 'ali')).toBe(true);
+  });
+
+  it('applies to the last word of a phrase', () => {
+    expect(containsPrefix('sezon finalini izledin mi', 'sezon finali')).toBe(true);
+    expect(containsPrefix('kisezon finalini', 'sezon finali')).toBe(false);
+  });
+});
+
 describe('compileRules', () => {
   it('normalizes and deduplicates keywords across lists', () => {
     const compiled = compileRules([
       { keywords: ['Sezon Finali', 'spoiler'] },
       { keywords: ['sezon  finali', 'SPOİLER'] },
     ]);
-    expect(compiled.keywords).toEqual(['sezon finali', 'spoiler']);
+    expect(compiled.keywords).toEqual([
+      { text: 'sezon finali', match: 'word' },
+      { text: 'spoiler', match: 'word' },
+    ]);
+  });
+
+  it('treats a bare string and an object without match as word mode', () => {
+    const compiled = compile({ keywords: ['ali', { text: 'veli' }] });
+    expect(compiled.keywords).toEqual([
+      { text: 'ali', match: 'word' },
+      { text: 'veli', match: 'word' },
+    ]);
+  });
+
+  it('keeps only the prefix rule when the same text has both modes', () => {
+    const expected = [{ text: 'siyasetci', match: 'prefix' }];
+    expect(
+      compileRules([
+        { keywords: ['siyasetçi'] },
+        { keywords: [{ text: 'SİYASETÇİ', match: 'prefix' }] },
+      ]).keywords,
+    ).toEqual(expected);
+    expect(
+      compileRules([
+        { keywords: [{ text: 'siyasetçi', match: 'prefix' }] },
+        { keywords: ['siyasetçi'] },
+      ]).keywords,
+    ).toEqual(expected);
+  });
+
+  it('drops object keywords that normalize to empty', () => {
+    expect(compile({ keywords: [{ text: '\u200B', match: 'prefix' }] }).keywords).toEqual([]);
   });
 
   it('deduplicates exclude phrases and accounts', () => {
@@ -97,6 +154,44 @@ describe('matchText', () => {
     const rules = compile({ keywords: ['ali'] });
     expect(matchText('Ali geldi', rules)).toEqual({ matched: true, keyword: 'ali' });
     expect(matchText('Kalite önemli', rules)).toEqual({ matched: false });
+  });
+
+  describe('prefix mode (Turkish suffixes)', () => {
+    const rules = compile({ keywords: [{ text: 'siyasetçi', match: 'prefix' }] });
+
+    it('matches suffixed forms', () => {
+      expect(matchText('Siyasetçilerin açıklaması', rules)).toEqual({
+        matched: true,
+        keyword: 'siyasetci',
+      });
+      expect(matchText('Bütün SİYASETÇİLER aynı', rules).matched).toBe(true);
+      expect(matchText('siyasetçi', rules).matched).toBe(true);
+    });
+
+    it('matches suffixed forms written without Turkish characters', () => {
+      expect(matchText('siyasetcilerin', rules).matched).toBe(true);
+    });
+
+    it('does not match when the keyword is not at a word start', () => {
+      expect(matchText('eksiyasetçiler', rules).matched).toBe(false);
+    });
+
+    it('word mode does not match suffixed forms', () => {
+      const word = compile({ keywords: ['siyasetçi'] });
+      expect(matchText('siyasetçilerin', word).matched).toBe(false);
+    });
+
+    it('"ali" in word mode does not match "kalite" or "alinin"', () => {
+      const word = compile({ keywords: [{ text: 'ali', match: 'word' }] });
+      expect(matchText('kalite', word).matched).toBe(false);
+      expect(matchText('alinin', word).matched).toBe(false);
+    });
+
+    it('"ali" in prefix mode matches "alinin" but still not "kalite"', () => {
+      const prefix = compile({ keywords: [{ text: 'ali', match: 'prefix' }] });
+      expect(matchText('alinin', prefix).matched).toBe(true);
+      expect(matchText('kalite', prefix).matched).toBe(false);
+    });
   });
 
   it('matches regardless of Turkish case and accents', () => {
@@ -187,6 +282,13 @@ describe('example list', () => {
 
   it('matches its account in author mode', () => {
     expect(matchAuthor('x', '@ornekhesap', rules)).toBe(true);
+  });
+
+  it('matches its prefix keyword with suffixes', () => {
+    expect(matchText('Sezon finalini izledin mi?', rules)).toEqual({
+      matched: true,
+      keyword: 'sezon finali',
+    });
   });
 });
 
