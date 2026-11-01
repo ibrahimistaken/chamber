@@ -1,5 +1,13 @@
 import type { Adapter, HideMode } from '../adapters/types';
-import { isProcessed, markProcessed, PLACEHOLDER_ATTR } from './hider';
+import {
+  getProcessedSignature,
+  hashContent,
+  isProcessed,
+  markProcessed,
+  PLACEHOLDER_ATTR,
+  PROCESSED_ATTR,
+  resetItem,
+} from './hider';
 import { matchAuthor, matchText, type CompiledRules } from './matcher';
 
 export interface ObserverOptions {
@@ -15,9 +23,28 @@ export interface ObserverHandle {
   flush(): void;
 }
 
+function getAuthorsForItem(item: HTMLElement, adapter: Adapter): string[] {
+  if (adapter.getAuthors) {
+    return adapter.getAuthors(item);
+  }
+  const single = adapter.getAuthor(item);
+  return single !== null && single !== '' ? [single] : [];
+}
+
+export function computeItemSignature(item: HTMLElement, adapter: Adapter): string {
+  const authors = getAuthorsForItem(item, adapter);
+  const text = adapter.getText(item);
+  return hashContent(`${authors.join(',')}::${text}`);
+}
+
 /**
- * Evaluates a single item once. Marked with data-chamber-processed so
- * subsequent scans or mutations never re-evaluate or re-hide it.
+ * Evaluates a single item. Binds `data-chamber-processed` to a content
+ * signature (author(s) + text hash) so that:
+ * - Unchanged items are never matched or hidden twice, and user-revealed
+ *   items stay visible.
+ * - Recycled DOM nodes (where X overwrites an existing <article> with a new
+ *   post during infinite scroll) have their previous state reset and are
+ *   re-evaluated for the new content.
  */
 export function processItem(
   item: HTMLElement,
@@ -25,58 +52,75 @@ export function processItem(
   rules: CompiledRules,
   mode: HideMode,
 ): boolean {
-  if (isProcessed(item) || item.hasAttribute(PLACEHOLDER_ATTR)) {
+  if (item.hasAttribute(PLACEHOLDER_ATTR)) {
     return false;
   }
 
-  const author = adapter.getAuthor(item);
-  const authorMatched =
-    author !== null && author !== '' && matchAuthor(adapter.platform, author, rules);
-  const textMatched = !authorMatched && matchText(adapter.getText(item), rules).matched;
+  const authors = getAuthorsForItem(item, adapter);
+  const text = adapter.getText(item);
+  const signature = hashContent(`${authors.join(',')}::${text}`);
+
+  if (item.hasAttribute(PROCESSED_ATTR)) {
+    const previousSig = getProcessedSignature(item);
+    if (previousSig === null || previousSig === signature) {
+      return false;
+    }
+    // Signature changed: this DOM element was recycled for a different post.
+    resetItem(item);
+  }
+
+  const authorMatched = authors.some((handle) => matchAuthor(adapter.platform, handle, rules));
+  const textMatched = !authorMatched && matchText(text, rules).matched;
 
   if (authorMatched || textMatched) {
     adapter.hide(item, mode);
-    // Ensure the processed marker is always set even if a custom adapter.hide
-    // implementation forgets to call hideItem.
-    if (!isProcessed(item)) {
-      markProcessed(item, 'hidden');
-    }
+    const state = isProcessed(item) ? 'hidden' : 'hidden';
+    markProcessed(item, state, signature);
     return true;
   }
 
-  markProcessed(item, 'checked');
+  markProcessed(item, 'checked', signature);
   return false;
 }
 
 /**
- * Collects candidate items from an added subtree without rescanning the page:
- * checks whether the added element itself is an item (via parent query or
- * direct traversal) and also queries inside the added element.
+ * Collects candidate items affected by a mutation node without rescanning the
+ * entire page:
+ * - descendant items inside `node`
+ * - `node` itself (if it is an item)
+ * - an ancestor item containing `node` (when a virtualized list mutates the
+ *   contents of an existing item in-place)
  */
-function collectItemsFromSubtree(node: HTMLElement, adapter: Adapter): HTMLElement[] {
-  if (node.hasAttribute(PLACEHOLDER_ATTR) || isProcessed(node)) {
+function collectCandidateItems(
+  node: HTMLElement,
+  root: ParentNode & Node,
+  adapter: Adapter,
+): HTMLElement[] {
+  if (node.hasAttribute(PLACEHOLDER_ATTR)) {
     return [];
   }
 
   const inside = adapter.getItems(node);
   const insideSet = new Set(inside);
 
-  // An added node may itself be the item element (e.g. an <article> appended
-  // directly to a feed). Ask the parent scope and check if `node` is included.
-  const parent = node.parentNode;
-  if (parent && !insideSet.has(node)) {
-    const siblings = adapter.getItems(parent);
-    if (siblings.includes(node)) {
-      return [node, ...inside];
+  let current: HTMLElement | null = node;
+  while (current && current !== root) {
+    const parent: ParentNode | null = current.parentNode;
+    if (parent && !insideSet.has(current)) {
+      const parentItems = adapter.getItems(parent);
+      if (parentItems.includes(current)) {
+        return [current, ...inside];
+      }
     }
+    current = current.parentElement;
   }
 
   return inside;
 }
 
 /**
- * Scans existing items once, then observes only newly added DOM nodes with a
- * debounced batch flush (see CLAUDE.md Performance & Adapter rules).
+ * Scans existing items once, then observes newly added or in-place recycled
+ * DOM nodes with a debounced batch flush (see CLAUDE.md Performance & Adapter rules).
  */
 export function startObserver(options: ObserverOptions): ObserverHandle {
   const {
@@ -92,7 +136,7 @@ export function startObserver(options: ObserverOptions): ObserverHandle {
     processItem(item, adapter, rules, mode);
   }
 
-  const pendingRoots = new Set<HTMLElement>();
+  const pendingNodes = new Set<HTMLElement>();
   let timerId: ReturnType<typeof setTimeout> | null = null;
 
   const flush = () => {
@@ -100,16 +144,21 @@ export function startObserver(options: ObserverOptions): ObserverHandle {
       clearTimeout(timerId);
       timerId = null;
     }
-    if (pendingRoots.size === 0) return;
+    if (pendingNodes.size === 0) return;
 
-    const batch = [...pendingRoots];
-    pendingRoots.clear();
+    const batch = [...pendingNodes];
+    pendingNodes.clear();
 
-    for (const added of batch) {
-      if (!added.isConnected) continue;
-      for (const item of collectItemsFromSubtree(added, adapter)) {
-        processItem(item, adapter, rules, mode);
+    const itemsToProcess = new Set<HTMLElement>();
+    for (const node of batch) {
+      if (!node.isConnected) continue;
+      for (const item of collectCandidateItems(node, root, adapter)) {
+        itemsToProcess.add(item);
       }
+    }
+
+    for (const item of itemsToProcess) {
+      processItem(item, adapter, rules, mode);
     }
   };
 
@@ -120,18 +169,30 @@ export function startObserver(options: ObserverOptions): ObserverHandle {
 
   const observer = new MutationObserver((mutations) => {
     for (const mutation of mutations) {
+      if (mutation.type === 'characterData') {
+        const parent = mutation.target.parentElement;
+        if (parent && !parent.closest(`[${PLACEHOLDER_ATTR}]`)) {
+          pendingNodes.add(parent);
+        }
+        continue;
+      }
+
       for (const added of mutation.addedNodes) {
         if (added instanceof HTMLElement && !added.hasAttribute(PLACEHOLDER_ATTR)) {
-          pendingRoots.add(added);
+          pendingNodes.add(added);
+        } else if (added.nodeType === Node.TEXT_NODE && added.parentElement) {
+          if (!added.parentElement.closest(`[${PLACEHOLDER_ATTR}]`)) {
+            pendingNodes.add(added.parentElement);
+          }
         }
       }
     }
-    if (pendingRoots.size > 0) {
+    if (pendingNodes.size > 0) {
       scheduleFlush();
     }
   });
 
-  observer.observe(root, { childList: true, subtree: true });
+  observer.observe(root, { childList: true, subtree: true, characterData: true });
 
   return {
     stop() {
@@ -139,10 +200,9 @@ export function startObserver(options: ObserverOptions): ObserverHandle {
         clearTimeout(timerId);
         timerId = null;
       }
-      pendingRoots.clear();
+      pendingNodes.clear();
       observer.disconnect();
     },
     flush,
   };
 }
-

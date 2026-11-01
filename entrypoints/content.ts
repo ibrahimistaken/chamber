@@ -1,13 +1,12 @@
 import type { Adapter } from '../src/adapters/types';
+import { xAdapter } from '../src/adapters/x';
 import { startObserver } from '../src/core/observer';
 import { getActiveRules } from '../src/storage/rules';
 
-// Registered platform adapters; populated as each platform is implemented.
-const ADAPTERS: readonly Adapter[] = [];
+const ADAPTERS: readonly Adapter[] = [xAdapter];
 
 export default defineContentScript({
-  // Empty until the first platform adapter is wired in.
-  matches: [],
+  matches: ['*://x.com/*', '*://*.x.com/*', '*://twitter.com/*', '*://*.twitter.com/*'],
   async main() {
     const adapter = ADAPTERS.find((candidate) => candidate.matches(window.location.href));
     if (!adapter) return;

@@ -1,9 +1,15 @@
 // @vitest-environment happy-dom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Adapter, HideMode } from '../src/adapters/types';
-import { hideItem, PLACEHOLDER_ATTR, PROCESSED_ATTR } from '../src/core/hider';
+import {
+  getProcessedSignature,
+  getProcessedState,
+  hideItem,
+  PLACEHOLDER_ATTR,
+  PROCESSED_ATTR,
+} from '../src/core/hider';
 import { compileRules, type ListRules } from '../src/core/matcher';
-import { startObserver, type ObserverHandle } from '../src/core/observer';
+import { processItem, startObserver, type ObserverHandle } from '../src/core/observer';
 import { getActiveRules, setActiveRules } from '../src/storage/rules';
 
 const SELECTORS = {
@@ -12,7 +18,10 @@ const SELECTORS = {
   text: '.body',
 } as const;
 
-function createFakeAdapter(counters?: { getTextCalls: Map<HTMLElement, number> }): Adapter {
+function createFakeAdapter(counters?: {
+  getTextCalls: Map<HTMLElement, number>;
+  hideCalls: Map<HTMLElement, number>;
+}): Adapter {
   return {
     platform: 'x',
     matches: (url) => url.startsWith('https://example.test/'),
@@ -29,6 +38,9 @@ function createFakeAdapter(counters?: { getTextCalls: Map<HTMLElement, number> }
       return item.querySelector(SELECTORS.text)?.textContent ?? '';
     },
     hide(item, mode) {
+      if (counters) {
+        counters.hideCalls.set(item, (counters.hideCalls.get(item) ?? 0) + 1);
+      }
       hideItem(item, mode);
     },
   };
@@ -70,7 +82,7 @@ describe('observer', () => {
 
   const compile = (rules: ListRules) => compileRules([rules]);
 
-  it('scans existing items once on start and hides matches', () => {
+  it('scans existing items once on start, hides matches, and stores content signatures', () => {
     const cleanPost = createPostElement('@user1', 'Güzel bir gün');
     const spoilerPost = createPostElement('@user2', 'Dünkü bölümde büyük spoiler var');
     const authorPost = createPostElement('@engellihesap', 'Normal bir paylaşım');
@@ -85,17 +97,22 @@ describe('observer', () => {
     handle = startObserver({ adapter, rules, root: feed });
 
     expect(cleanPost.style.display).toBe('');
-    expect(cleanPost.getAttribute(PROCESSED_ATTR)).toBe('checked');
+    expect(getProcessedState(cleanPost)).toBe('checked');
+    expect(getProcessedSignature(cleanPost)).toBeTruthy();
 
     expect(spoilerPost.style.display).toBe('none');
-    expect(spoilerPost.getAttribute(PROCESSED_ATTR)).toBe('hidden');
+    expect(getProcessedState(spoilerPost)).toBe('hidden');
+    expect(getProcessedSignature(spoilerPost)).toBeTruthy();
 
     expect(authorPost.style.display).toBe('none');
-    expect(authorPost.getAttribute(PROCESSED_ATTR)).toBe('hidden');
+    expect(getProcessedState(authorPost)).toBe('hidden');
   });
 
   it('hides dynamically added nodes after the debounce window without re-processing existing items', async () => {
-    const counters = { getTextCalls: new Map<HTMLElement, number>() };
+    const counters = {
+      getTextCalls: new Map<HTMLElement, number>(),
+      hideCalls: new Map<HTMLElement, number>(),
+    };
     const existing = createPostElement('@user1', 'Mevcut temiz gönderi');
     feed.appendChild(existing);
 
@@ -114,7 +131,6 @@ describe('observer', () => {
 
     feed.append(dynamicMatch, wrapper);
 
-    // Let MutationObserver microtasks run before advancing the debounce timer.
     await Promise.resolve();
     expect(dynamicMatch.style.display).toBe('');
 
@@ -123,37 +139,43 @@ describe('observer', () => {
     expect(dynamicMatch.style.display).toBe('none');
     expect(nestedMatch.style.display).toBe('none');
     expect(nestedClean.style.display).toBe('');
-    expect(nestedClean.getAttribute(PROCESSED_ATTR)).toBe('checked');
+    expect(getProcessedState(nestedClean)).toBe('checked');
 
-    // Existing item was not evaluated a second time.
+    // Existing item was not touched when sibling nodes were added.
     expect(counters.getTextCalls.get(existing)).toBe(1);
     expect(counters.getTextCalls.get(dynamicMatch)).toBe(1);
     expect(counters.getTextCalls.get(nestedMatch)).toBe(1);
   });
 
-  it('does not process the same item twice even if mutated or re-scanned', async () => {
-    const counters = { getTextCalls: new Map<HTMLElement, number>() };
-    const post = createPostElement('@user1', 'Normal metin');
+  it('does not re-hide or re-evaluate rules when an item is re-scanned with the same signature', async () => {
+    const counters = {
+      getTextCalls: new Map<HTMLElement, number>(),
+      hideCalls: new Map<HTMLElement, number>(),
+    };
+    const post = createPostElement('@user1', 'Büyük spoiler');
     feed.appendChild(post);
 
     const adapter = createFakeAdapter(counters);
     const rules = compile({ keywords: ['spoiler'] });
 
     handle = startObserver({ adapter, rules, root: feed, debounceMs: 20 });
-    expect(counters.getTextCalls.get(post)).toBe(1);
+    expect(counters.hideCalls.get(post)).toBe(1);
+    const initialAttr = post.getAttribute(PROCESSED_ATTR);
 
-    // Append a child inside the already-processed post.
+    // Append an unrelated non-text badge inside the post; author + body text are unchanged.
     const extra = document.createElement('span');
-    extra.textContent = 'ek';
+    extra.textContent = '12 beğeni';
     post.appendChild(extra);
 
     await Promise.resolve();
     vi.advanceTimersByTime(30);
 
-    expect(counters.getTextCalls.get(post)).toBe(1);
+    expect(counters.hideCalls.get(post)).toBe(1);
+    expect(post.getAttribute(PROCESSED_ATTR)).toBe(initialAttr);
+    expect(processItem(post, adapter, rules, 'collapse')).toBe(false);
   });
 
-  it('reveals a collapsed item when "Göster" is clicked and never hides it again', async () => {
+  it('reveals a collapsed item when "Göster" is clicked and never hides it again while content is unchanged', async () => {
     const post = createPostElement('@user1', 'Büyük spoiler içerir');
     feed.appendChild(post);
 
@@ -168,7 +190,7 @@ describe('observer', () => {
     showButton.click();
 
     expect(post.style.display).toBe('');
-    expect(post.getAttribute(PROCESSED_ATTR)).toBe('revealed');
+    expect(getProcessedState(post)).toBe('revealed');
     expect(feed.querySelector(`[${PLACEHOLDER_ATTR}]`)).toBeNull();
 
     // Trigger mutations and another observer pass; revealed item must stay visible.
@@ -179,6 +201,84 @@ describe('observer', () => {
 
     expect(post.style.display).toBe('');
     expect(another.style.display).toBe('none');
+  });
+
+  describe('DOM node recycling (in-place content replacement)', () => {
+    it('unhides and removes placeholder when a hidden node is recycled for a clean post', async () => {
+      const post = createPostElement('@user1', 'Çok büyük spoiler');
+      feed.appendChild(post);
+
+      const adapter = createFakeAdapter();
+      const rules = compile({ keywords: ['spoiler'] });
+
+      handle = startObserver({ adapter, rules, root: feed, debounceMs: 20 });
+      expect(post.style.display).toBe('none');
+      expect(feed.querySelectorAll(`[${PLACEHOLDER_ATTR}]`)).toHaveLength(1);
+      const oldSig = getProcessedSignature(post);
+
+      // Virtualized list reuses the same <article> element for a clean post.
+      post.querySelector('.author')!.textContent = '@user2';
+      post.querySelector('.body')!.textContent = 'Tamamen temiz bir gönderi';
+
+      await Promise.resolve();
+      vi.advanceTimersByTime(30);
+
+      expect(post.style.display).toBe('');
+      expect(feed.querySelector(`[${PLACEHOLDER_ATTR}]`)).toBeNull();
+      expect(getProcessedState(post)).toBe('checked');
+      expect(getProcessedSignature(post)).not.toBe(oldSig);
+    });
+
+    it('hides a previously clean node when recycled for a matching post', async () => {
+      const post = createPostElement('@user1', 'Temiz başlangıç metni');
+      feed.appendChild(post);
+
+      const adapter = createFakeAdapter();
+      const rules = compile({
+        keywords: ['spoiler'],
+        accounts: [{ platform: 'x', handle: 'yasakli' }],
+      });
+
+      handle = startObserver({ adapter, rules, root: feed, debounceMs: 20 });
+      expect(post.style.display).toBe('');
+      expect(getProcessedState(post)).toBe('checked');
+
+      // Recycle the same DOM node with a blocked author.
+      post.querySelector('.author')!.textContent = '@yasakli';
+      post.querySelector('.body')!.textContent = 'Yeni içerik';
+
+      await Promise.resolve();
+      vi.advanceTimersByTime(30);
+
+      expect(post.style.display).toBe('none');
+      expect(getProcessedState(post)).toBe('hidden');
+      expect(feed.querySelectorAll(`[${PLACEHOLDER_ATTR}]`)).toHaveLength(1);
+    });
+
+    it('re-evaluates and hides a user-revealed node if its content is later recycled', async () => {
+      const post = createPostElement('@user1', 'İlk spoiler gönderisi');
+      feed.appendChild(post);
+
+      const adapter = createFakeAdapter();
+      const rules = compile({ keywords: ['spoiler'] });
+
+      handle = startObserver({ adapter, rules, root: feed, debounceMs: 20 });
+      const showButton = feed.querySelector(`[${PLACEHOLDER_ATTR}] button`) as HTMLButtonElement;
+      showButton.click();
+      expect(post.style.display).toBe('');
+      expect(getProcessedState(post)).toBe('revealed');
+
+      // Recycle the same <article> for a different post that also matches.
+      post.querySelector('.author')!.textContent = '@user99';
+      post.querySelector('.body')!.textContent = 'Bambaşka bir spoiler gönderisi';
+
+      await Promise.resolve();
+      vi.advanceTimersByTime(30);
+
+      expect(post.style.display).toBe('none');
+      expect(getProcessedState(post)).toBe('hidden');
+      expect(feed.querySelectorAll(`[${PLACEHOLDER_ATTR}]`)).toHaveLength(1);
+    });
   });
 
   it('respects the requested HideMode ("remove")', () => {
@@ -240,4 +340,3 @@ describe('storage/rules', () => {
     expect(loaded.rules.exclude).toEqual(['spoiler yok']);
   });
 });
-

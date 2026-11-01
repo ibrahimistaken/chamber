@@ -9,6 +9,7 @@ export default defineConfig({
     name: 'Chamber',
     description: 'List-based, local-only content filter.',
     // Only local storage is used to cache compiled rules on the device.
+    // Content script host access is scoped strictly via entrypoints/content.ts matches.
     permissions: ['storage'],
   },
 });

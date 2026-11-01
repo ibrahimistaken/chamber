@@ -6,25 +6,91 @@ export const PLACEHOLDER_ATTR = 'data-chamber-placeholder';
 
 export type ProcessedState = 'checked' | 'hidden' | 'revealed';
 
-export function isProcessed(item: Element): boolean {
-  return item.hasAttribute(PROCESSED_ATTR);
+interface CleanupEntry {
+  restore(): void;
 }
 
-export function markProcessed(item: Element, state: ProcessedState = 'checked'): void {
-  item.setAttribute(PROCESSED_ATTR, state);
+// Tracks active hide cleanups per DOM element so recycled nodes can be reset
+// cleanly when X replaces their content in-place during infinite scroll.
+const activeCleanups = new WeakMap<HTMLElement, CleanupEntry>();
+
+/**
+ * Deterministic 32-bit FNV-1a hash used to fingerprint an item's author(s) + text.
+ */
+export function hashContent(input: string): string {
+  let hash = 0x811c9dc5;
+  for (let i = 0; i < input.length; i++) {
+    hash ^= input.charCodeAt(i);
+    hash = Math.imul(hash, 0x01000193);
+  }
+  return (hash >>> 0).toString(36);
+}
+
+function parseProcessedAttr(raw: string | null): {
+  state: ProcessedState | null;
+  signature: string | null;
+} {
+  if (!raw) return { state: null, signature: null };
+  const colonIdx = raw.indexOf(':');
+  if (colonIdx === -1) {
+    return { state: raw as ProcessedState, signature: null };
+  }
+  return {
+    state: raw.slice(0, colonIdx) as ProcessedState,
+    signature: raw.slice(colonIdx + 1),
+  };
+}
+
+export function getProcessedState(item: Element): ProcessedState | null {
+  return parseProcessedAttr(item.getAttribute(PROCESSED_ATTR)).state;
+}
+
+export function getProcessedSignature(item: Element): string | null {
+  return parseProcessedAttr(item.getAttribute(PROCESSED_ATTR)).signature;
+}
+
+export function isProcessed(item: Element, signature?: string): boolean {
+  const parsed = parseProcessedAttr(item.getAttribute(PROCESSED_ATTR));
+  if (parsed.state === null) return false;
+  if (signature === undefined || parsed.signature === null) return true;
+  return parsed.signature === signature;
+}
+
+export function markProcessed(
+  item: Element,
+  state: ProcessedState = 'checked',
+  signature?: string,
+): void {
+  const existingSig = signature ?? getProcessedSignature(item);
+  const value = existingSig ? `${state}:${existingSig}` : state;
+  item.setAttribute(PROCESSED_ATTR, value);
+}
+
+/**
+ * Clears any previous hide state (placeholder box, inline display/blur styles,
+ * and processed marker) when a DOM node is recycled for a different post.
+ */
+export function resetItem(item: HTMLElement): void {
+  const cleanup = activeCleanups.get(item);
+  if (cleanup) {
+    cleanup.restore();
+    activeCleanups.delete(item);
+  }
+  item.removeAttribute(PROCESSED_ATTR);
 }
 
 /**
  * Applies the requested hide mode to a matched DOM item.
  * Never uses innerHTML (CLAUDE.md invariant #3); all labels go through textContent.
- * If an item has already been revealed by the user, it will not be hidden again.
+ * If an item has already been revealed by the user for the same content
+ * signature, it will not be hidden again.
  */
 export function hideItem(
   item: HTMLElement,
   mode: HideMode = 'collapse',
   locale: Locale = 'tr',
 ): void {
-  const currentState = item.getAttribute(PROCESSED_ATTR);
+  const currentState = getProcessedState(item);
   if (currentState === 'revealed' || currentState === 'hidden') {
     return;
   }
@@ -45,10 +111,18 @@ export function hideItem(
     const onReveal = (event: Event) => {
       event.stopPropagation();
       item.style.filter = previousFilter;
+      activeCleanups.delete(item);
       markProcessed(item, 'revealed');
       item.removeEventListener('click', onReveal);
     };
     item.addEventListener('click', onReveal);
+
+    activeCleanups.set(item, {
+      restore() {
+        item.style.filter = previousFilter;
+        item.removeEventListener('click', onReveal);
+      },
+    });
     return;
   }
 
@@ -70,11 +144,18 @@ export function hideItem(
     event.stopPropagation();
     placeholder.remove();
     item.style.display = previousDisplay;
+    activeCleanups.delete(item);
     markProcessed(item, 'revealed');
   });
 
   placeholder.appendChild(label);
   placeholder.appendChild(button);
   item.parentNode?.insertBefore(placeholder, item);
-}
 
+  activeCleanups.set(item, {
+    restore() {
+      placeholder.remove();
+      item.style.display = previousDisplay;
+    },
+  });
+}

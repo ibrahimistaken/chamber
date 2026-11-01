@@ -11,7 +11,12 @@ export interface Adapter {
   matches(url: string): boolean;
   getItems(root: ParentNode): HTMLElement[];
   getAuthor(item: HTMLElement): string | null;
+  /**
+   * Optional multi-author hook for posts involving more than one account
+   * (e.g. a repost or quote post on X). When implemented, the observer checks
+   * every returned handle against active account rules.
+   */
+  getAuthors?(item: HTMLElement): string[];
   getText(item: HTMLElement): string;
   hide(item: HTMLElement, mode: HideMode): void;
 }
-
